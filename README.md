@@ -1,58 +1,168 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Taller Integrador — API
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Construida con Laravel 13 sobre PHP 8.3, PostgreSQL 16 y Redis, orquestada con Docker Compose.
 
-## About Laravel
+## Requisitos
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- Docker y Docker Compose
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+No necesitas PHP, Composer ni Node instalados: todo corre en contenedores.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
-
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+## Instalación
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+git clone <url-del-repo> && cd api
+cp .env.example .env
+docker compose up -d
+docker compose exec app php artisan key:generate
+docker compose exec app php artisan migrate
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+La API queda en `http://localhost:8000`.
 
-## Contributing
+## Servicios
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+| Servicio | URL |
+|---|---|
+| API | http://localhost:8000 |
+| Mailpit (correos) | http://localhost:8025 |
+| PostgreSQL | localhost:5432 |
 
-## Code of Conduct
+## Comandos útiles
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+```bash
+docker compose exec app php artisan migrate        # aplicar migraciones nuevas
+docker compose exec app php artisan migrate:fresh  # recrear la base desde cero
+docker compose logs -f app                         # ver logs
+docker compose restart                             # reiniciar todo
+```
 
-## Security Vulnerabilities
+> Después de instalar un paquete con Composer, reinicia los contenedores o el
+> autoloader se queda en caché.
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+## Conectarse desde un dispositivo móvil
 
-## License
+Un celular no puede alcanzar `localhost`. Usa la IP local de la máquina que
+corre la API:
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+```bash
+hostname -I
+```
+
+Y apunta la app a `http://<esa-ip>:8000/api/v1`. Ambos dispositivos deben estar
+en la misma red.
+
+En el emulador de Android, la dirección del host es `10.0.2.2`.
+
+
+
+## API
+
+**Base URL:** `http://localhost:8000/api/v1`
+
+Todas las respuestas son JSON. Envía siempre el header `Accept: application/json`.
+
+Las rutas protegidas requieren el token en el header:
+
+```
+Authorization: Bearer <token>
+```
+
+### Roles
+
+| Valor | Descripción |
+|---|---|
+| `student` | Estudiante. Se inscribe a cursos y los consume. |
+| `instructor` | Instructor. Crea y publica cursos. |
+| `admin` | Administrador. **No puede elegirse al registrarse.** Se crea desde el seeder inicial o lo otorga otro administrador. |
+
+---
+
+### POST `/auth/register`
+
+Crea una cuenta y devuelve un token de acceso. **Ruta pública.**
+
+**Cuerpo de la petición**
+
+| Campo | Tipo | Reglas |
+|---|---|---|
+| `name` | string | Requerido. Máximo 255 caracteres. |
+| `email` | string | Requerido. Formato de correo válido. Máximo 255. Único en el sistema. |
+| `password` | string | Requerido. Mínimo 8 caracteres. |
+| `password_confirmation` | string | Requerido. Debe coincidir con `password`. |
+| `role` | string | Requerido. Solo `student` o `instructor`. |
+
+**Ejemplo**
+
+```json
+{
+  "name": "Juan Rios",
+  "email": "juan@ejemplo.com",
+  "password": "password123",
+  "password_confirmation": "password123",
+  "role": "instructor"
+}
+```
+
+**Respuesta 201 Created**
+
+```json
+{
+  "user": {
+    "id": 3,
+    "name": "Juan Rios",
+    "email": "juan@ejemplo.com",
+    "role": "instructor"
+  },
+  "token": "3|Roy8JVjKSwluxmYgy6NvYE2ktLbcLnC6oZaOGVwj499962b2"
+}
+```
+
+El token se devuelve **una sola vez**, en esta respuesta. Guárdalo: no se puede recuperar después.
+
+**Respuesta 422 Unprocessable Content**
+
+Cuando la validación falla. Formato uniforme para todos los endpoints:
+
+```json
+{
+  "message": "The email has already been taken.",
+  "errors": {
+    "email": ["The email has already been taken."]
+  }
+}
+```
+
+**Casos de error**
+
+| Situación | Código | Campo en `errors` |
+|---|---|---|
+| Correo ya registrado | 422 | `email` |
+| `role` con valor `admin` | 422 | `role` |
+| `role` con valor no reconocido | 422 | `role` |
+| Contraseña sin confirmación o no coincide | 422 | `password` |
+| Contraseña menor a 8 caracteres | 422 | `password` |
+| Campo requerido faltante | 422 | el campo correspondiente |
+
+**Ejemplo con curl**
+
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/register \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Juan Rios",
+    "email": "juan@ejemplo.com",
+    "password": "password123",
+    "password_confirmation": "password123",
+    "role": "instructor"
+  }'
+```
+
+---
+
+### Pendientes
+
+- `POST /auth/login`
+- `POST /auth/logout`
+- `GET /auth/me`
