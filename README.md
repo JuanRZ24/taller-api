@@ -160,9 +160,133 @@ curl -X POST http://localhost:8000/api/v1/auth/register \
 ```
 
 ---
+### POST 'auth/login' 
 
-### Pendientes
+Inicia sesion con las credenciales del usuario y devuelve un token  de acceso **RUTA PUBLICA**
 
-- `POST /auth/login`
-- `POST /auth/logout`
-- `GET /auth/me`
+**Cuerpo de la peticion**
+
+| Campo      | tipo     | reglas |
+|------------|----------|--------|
+| 'email'    | string   |Requerido, formato de correo valido.|
+| 'password' | string   |Requerido.|
+
+**Ejemplo**
+
+{
+  "email": "juan@ejemplo.com",
+  "password": "password123"
+}
+
+**Respuesta 200 OK**
+
+{
+  "user": {
+    "id": 1,
+    "name": "Juan Prueba",
+    "email": "juan@test.com",
+    "role": "student"
+  },
+  "token": "3|ckkQQIycud9oxofuTNMXHGl2DSXGMwVbRsQkUKMM81afc5cd"
+}
+
+El token debe enviarse posteriormente en las rutas protegidas mediante:
+
+Authorization: Bearer <token>
+
+**Casos de error**
+
+| 'Situacion'                | 'Codigo' | Mensaje                    |
+|----------------------------|----------|----------------------------|
+| 'Correo inexistente'       |  401     | 'Credenciales incorrectas.'|
+| 'Contraseña incorrecta'    |  401     | 'Credenciales incorrectas.'|
+| 'Cuenta inactiva'          |  403     | 'Cuenta no activa.'        |
+| 'Datos de login invalidos' |  422     | Error de validacion        |
+
+El correo inexistente y la contraseña incorrecta utilizan el mismo mensaje para no revelar si una cuenta esta registrada
+
+**Ejemplo con curl**
+
+curl -X POST http://localhost:8000/api/v1/auth/login \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "juan@ejemplo.com",
+    "password": "password123"
+  }'
+
+
+  ### POST '/auth/logout'
+
+  Cierra la sesion del usuario autenticado y revoca unicamente el token utilizado en la peticion. **RUTA PROTEGIDA**
+
+  **AUTENTICACION**
+  
+  Debe enviarse un token valido mediante:
+
+  Authorization: Bearer <token>
+
+  **Cuerpo de la peticion**
+
+  No requiere cuerpo.
+
+  **Respuesta 204 No content**
+
+  La peticion se procesa correctamente y no devuelve contenido en el cuerpo de la respuesta
+
+  **Ejemplo con curl**
+
+  curl -X POST http://localhost:8000/api/v1/auth/logout \ 
+  -H "Accept: application/json" \ 
+  -H "Authorization: Bearer <token>"
+
+**Casos de error**
+|        'Situacion'         | 'Codigo'|
+|----------------------------|---------|
+| 'Token invalido o ausente' |  401    |
+| 'Token ya revocado'        |  401    |
+| 'Logout exitoso'           |  204    |
+
+El logout revoca unicamenrte el token utilizado en la peticion. Otros tokens activos del mismo usuario no se revocan.
+
+## GET 'auth/me'
+
+Obtiene la informacion del usuario autenticado. **RUTA PROTEGIDA.**
+
+**Autenticacion**
+
+Debe enviarse un token valido mediante 
+Authorization: Bearer <token>
+
+**Cuerpo de la peticion**
+
+No requiere cuerpo.
+
+**Respuesta 200 OK**
+
+{
+   "user": {
+     "id": 1,
+     "name": "Juan Prueba", 
+     "email": "juan@test.com",
+      "role": "student" 
+    } 
+}
+
+**Casos de error**
+
+|     Situacion'     'Codigo' |
+|------------------|----------|
+| 'Token valido'   |  200     |
+| 'Token invalido' |  401     |
+| 'Token ausente'  |  401     |
+| 'Token revocado' |  401     |
+
+
+**Ejemplo con curl**
+
+curl -X GET http://localhost:8000/api/v1/auth/me \
+-H "Accept: application/json" \ 
+-H "Authorization: Bearer <token>"
+
+La informacion del usuario se obtiene a partir de token autenticado. el endpoint no requiere enviar el id de usuario.
