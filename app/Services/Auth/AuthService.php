@@ -45,7 +45,7 @@ class AuthService
         );
     }
 
-    if ($user->status === UserStatus::Inactive){
+    if ($user->status !== UserStatus::Active){
         throw new HttpException(
             403,
             'Cuenta no activa.'
