@@ -7,6 +7,7 @@ use App\Enums\UserStatus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Symfony\Component\HttpKernel\Exception\HttpException;
+use App\Enums\UserRole;
 
 
 class AuthService
@@ -21,7 +22,7 @@ class AuthService
                 
             ]);
 
-            $user->role = $data['role'];
+            $user->role = UserRole::Student;
             $user->save();
 
             return [
