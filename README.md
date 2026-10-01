@@ -54,7 +54,7 @@ en la misma red.
 
 En el emulador de Android, la dirección del host es `10.0.2.2`.
 
-
+---
 
 ## API
 
@@ -72,9 +72,12 @@ Authorization: Bearer <token>
 
 | Valor | Descripción |
 |---|---|
-| `student` | Estudiante. Se inscribe a cursos y los consume. |
-| `instructor` | Instructor. Crea y publica cursos. |
-| `admin` | Administrador. **No puede elegirse al registrarse.** Se crea desde el seeder inicial o lo otorga otro administrador. |
+| `student` | Estudiante. Se inscribe a cursos y los consume. **Es el rol con el que nace toda cuenta nueva.** |
+| `instructor` | Instructor. Crea y publica cursos. Lo asigna un administrador. |
+| `admin` | Administrador. Gestiona cuentas y roles. Se crea desde el seeder inicial o lo otorga otro administrador. |
+
+**El rol no se elige al registrarse.** Toda cuenta se crea como `student`; los
+demás roles los asigna un administrador.
 
 ---
 
@@ -90,7 +93,9 @@ Crea una cuenta y devuelve un token de acceso. **Ruta pública.**
 | `email` | string | Requerido. Formato de correo válido. Máximo 255. Único en el sistema. |
 | `password` | string | Requerido. Mínimo 8 caracteres. |
 | `password_confirmation` | string | Requerido. Debe coincidir con `password`. |
-| `role` | string | Requerido. Solo `student` o `instructor`. |
+
+El endpoint **no acepta un campo `role`**. Si se envía, se ignora por completo y
+la cuenta se crea igualmente como `student`.
 
 **Ejemplo**
 
@@ -99,8 +104,7 @@ Crea una cuenta y devuelve un token de acceso. **Ruta pública.**
   "name": "Juan Rios",
   "email": "juan@ejemplo.com",
   "password": "password123",
-  "password_confirmation": "password123",
-  "role": "instructor"
+  "password_confirmation": "password123"
 }
 ```
 
@@ -112,13 +116,14 @@ Crea una cuenta y devuelve un token de acceso. **Ruta pública.**
     "id": 3,
     "name": "Juan Rios",
     "email": "juan@ejemplo.com",
-    "role": "instructor"
+    "role": "student"
   },
   "token": "3|Roy8JVjKSwluxmYgy6NvYE2ktLbcLnC6oZaOGVwj499962b2"
 }
 ```
 
-El token se devuelve **una sola vez**, en esta respuesta. Guárdalo: no se puede recuperar después.
+El token se devuelve **una sola vez**, en esta respuesta. Guárdalo: no se puede
+recuperar después.
 
 **Respuesta 422 Unprocessable Content**
 
@@ -138,8 +143,6 @@ Cuando la validación falla. Formato uniforme para todos los endpoints:
 | Situación | Código | Campo en `errors` |
 |---|---|---|
 | Correo ya registrado | 422 | `email` |
-| `role` con valor `admin` | 422 | `role` |
-| `role` con valor no reconocido | 422 | `role` |
 | Contraseña sin confirmación o no coincide | 422 | `password` |
 | Contraseña menor a 8 caracteres | 422 | `password` |
 | Campo requerido faltante | 422 | el campo correspondiente |
@@ -154,32 +157,36 @@ curl -X POST http://localhost:8000/api/v1/auth/register \
     "name": "Juan Rios",
     "email": "juan@ejemplo.com",
     "password": "password123",
-    "password_confirmation": "password123",
-    "role": "instructor"
+    "password_confirmation": "password123"
   }'
 ```
 
 ---
-### POST 'auth/login' 
 
-Inicia sesion con las credenciales del usuario y devuelve un token  de acceso **RUTA PUBLICA**
+### POST `/auth/login`
 
-**Cuerpo de la peticion**
+Inicia sesión con las credenciales del usuario y devuelve un token de acceso.
+**Ruta pública.**
 
-| Campo      | tipo     | reglas |
-|------------|----------|--------|
-| 'email'    | string   |Requerido, formato de correo valido.|
-| 'password' | string   |Requerido.|
+**Cuerpo de la petición**
+
+| Campo | Tipo | Reglas |
+|---|---|---|
+| `email` | string | Requerido. Formato de correo válido. |
+| `password` | string | Requerido. |
 
 **Ejemplo**
 
+```json
 {
   "email": "juan@ejemplo.com",
   "password": "password123"
 }
+```
 
 **Respuesta 200 OK**
 
+```json
 {
   "user": {
     "id": 1,
@@ -189,24 +196,23 @@ Inicia sesion con las credenciales del usuario y devuelve un token  de acceso **
   },
   "token": "3|ckkQQIycud9oxofuTNMXHGl2DSXGMwVbRsQkUKMM81afc5cd"
 }
-
-El token debe enviarse posteriormente en las rutas protegidas mediante:
-
-Authorization: Bearer <token>
+```
 
 **Casos de error**
 
-| 'Situacion'                | 'Codigo' | Mensaje                    |
-|----------------------------|----------|----------------------------|
-| 'Correo inexistente'       |  401     | 'Credenciales incorrectas.'|
-| 'Contraseña incorrecta'    |  401     | 'Credenciales incorrectas.'|
-| 'Cuenta inactiva'          |  403     | 'Cuenta no activa.'        |
-| 'Datos de login invalidos' |  422     | Error de validacion        |
+| Situación | Código | Mensaje |
+|---|---|---|
+| Correo inexistente | 401 | `Credenciales incorrectas.` |
+| Contraseña incorrecta | 401 | `Credenciales incorrectas.` |
+| Cuenta inactiva | 403 | `Cuenta no activa.` |
+| Datos de login inválidos | 422 | Error de validación |
 
-El correo inexistente y la contraseña incorrecta utilizan el mismo mensaje para no revelar si una cuenta esta registrada
+El correo inexistente y la contraseña incorrecta devuelven **el mismo mensaje**,
+para no revelar si una cuenta está registrada.
 
 **Ejemplo con curl**
 
+```bash
 curl -X POST http://localhost:8000/api/v1/auth/login \
   -H "Accept: application/json" \
   -H "Content-Type: application/json" \
@@ -214,79 +220,89 @@ curl -X POST http://localhost:8000/api/v1/auth/login \
     "email": "juan@ejemplo.com",
     "password": "password123"
   }'
+```
 
+---
 
-  ### POST '/auth/logout'
+### POST `/auth/logout`
 
-  Cierra la sesion del usuario autenticado y revoca unicamente el token utilizado en la peticion. **RUTA PROTEGIDA**
+Cierra la sesión del usuario autenticado y revoca **únicamente el token utilizado
+en la petición**. Otros tokens activos del mismo usuario siguen siendo válidos.
+**Ruta protegida.**
 
-  **AUTENTICACION**
-  
-  Debe enviarse un token valido mediante:
+**Autenticación**
 
-  Authorization: Bearer <token>
+```
+Authorization: Bearer <token>
+```
 
-  **Cuerpo de la peticion**
+**Cuerpo de la petición**
 
-  No requiere cuerpo.
+No requiere cuerpo.
 
-  **Respuesta 204 No content**
+**Respuesta 204 No Content**
 
-  La peticion se procesa correctamente y no devuelve contenido en el cuerpo de la respuesta
-
-  **Ejemplo con curl**
-
-  curl -X POST http://localhost:8000/api/v1/auth/logout \ 
-  -H "Accept: application/json" \ 
-  -H "Authorization: Bearer <token>"
+La petición se procesa correctamente y no devuelve contenido.
 
 **Casos de error**
-|        'Situacion'         | 'Codigo'|
-|----------------------------|---------|
-| 'Token invalido o ausente' |  401    |
-| 'Token ya revocado'        |  401    |
-| 'Logout exitoso'           |  204    |
 
-El logout revoca unicamenrte el token utilizado en la peticion. Otros tokens activos del mismo usuario no se revocan.
+| Situación | Código |
+|---|---|
+| Token inválido o ausente | 401 |
+| Token ya revocado | 401 |
 
-## GET 'auth/me'
+**Ejemplo con curl**
 
-Obtiene la informacion del usuario autenticado. **RUTA PROTEGIDA.**
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/logout \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <token>"
+```
 
-**Autenticacion**
+---
 
-Debe enviarse un token valido mediante 
+### GET `/auth/me`
+
+Obtiene la información del usuario autenticado. **Ruta protegida.**
+
+La información se obtiene a partir del token: el endpoint no recibe el id del
+usuario.
+
+**Autenticación**
+
+```
 Authorization: Bearer <token>
+```
 
-**Cuerpo de la peticion**
+**Cuerpo de la petición**
 
 No requiere cuerpo.
 
 **Respuesta 200 OK**
 
+```json
 {
-   "user": {
-     "id": 1,
-     "name": "Juan Prueba", 
-     "email": "juan@test.com",
-      "role": "student" 
-    } 
+  "user": {
+    "id": 1,
+    "name": "Juan Prueba",
+    "email": "juan@test.com",
+    "role": "student"
+  }
 }
+```
 
 **Casos de error**
 
-|     Situacion'     'Codigo' |
-|------------------|----------|
-| 'Token valido'   |  200     |
-| 'Token invalido' |  401     |
-| 'Token ausente'  |  401     |
-| 'Token revocado' |  401     |
-
+| Situación | Código |
+|---|---|
+| Token inválido | 401 |
+| Token ausente | 401 |
+| Token revocado | 401 |
 
 **Ejemplo con curl**
 
+```bash
 curl -X GET http://localhost:8000/api/v1/auth/me \
--H "Accept: application/json" \ 
--H "Authorization: Bearer <token>"
-
-La informacion del usuario se obtiene a partir de token autenticado. el endpoint no requiere enviar el id de usuario.
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <token>"
+```
