@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Laravel\Sanctum\HasApiTokens;
 use App\Enums\UserRole;
 use App\Enums\UserStatus;
@@ -33,5 +34,11 @@ class User extends Authenticatable
             'status' => UserStatus::class,
             'role' => UserRole::class,
         ];
+    }
+
+
+    public function instructorProfile(): HasOne
+    {
+        return $this->hasOne(InstructorProfile::class);
     }
 }
