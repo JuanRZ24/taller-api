@@ -29,6 +29,7 @@ Authorization: Bearer <token>
 | `POST` | [`/auth/login`](#post-authlogin) | Público | Valida credenciales y devuelve un token |
 | `POST` | [`/auth/logout`](#post-authlogout) | Token | Revoca el token utilizado |
 | `GET` | [`/auth/me`](#get-authme) | Token | Devuelve el usuario autenticado |
+| `POST` | [`/instructors`](#post-instructors) | Token · Estudiante | Convierte al usuario autenticado en instructor |
 
 
 ---
@@ -258,3 +259,49 @@ curl -X GET http://localhost:8000/api/v1/auth/me \
   -H "Accept: application/json" \
   -H "Authorization: Bearer <token>"
 ```
+
+
+---
+
+### POST `/instructors`
+
+Convierte al usuario autenticado en instructor, creando su perfil público en la
+misma operación. **Requiere token.**
+
+Solo un usuario con rol `student` puede usar este endpoint. El perfil es
+obligatorio: no existe un instructor sin perfil.
+
+**Cuerpo de la petición**
+
+| Campo | Tipo | Reglas |
+|---|---|---|
+| `headline` | string | Requerido. Máximo 150 caracteres. |
+| `specialty` | string | Requerido. Máximo 100 caracteres. |
+| `biography` | string | Requerido. Entre 50 y 2000 caracteres. |
+
+El endpoint **no acepta un campo `user_id`**. El dueño del perfil se toma del
+token, nunca del cuerpo de la petición.
+
+**Ejemplo**
+
+```json
+{
+  "headline": "Ingeniero de software | 10 años enseñando backend",
+  "specialty": "Desarrollo web",
+  "biography": "Trabajo con Laravel desde 2018 y he dado clases de backend a más de mil alumnos en línea."
+}
+
+Respuesta 201 Created 
+{
+  "user": {
+    "id": 14,
+    "name": "Juan Rios",
+    "email": "juan@ejemplo.com",
+    "role": "instructor"
+  },
+  "profile": {
+    "headline": "Ingeniero de software | 10 años enseñando backend",
+    "specialty": "Desarrollo web",
+    "biography": "Trabajo con Laravel desde 2018 y he dado clases de backend a más de mil alumnos en línea."
+  }
+}

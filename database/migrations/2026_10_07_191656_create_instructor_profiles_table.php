@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('headline', 150);
             $table->string('specialty', 100);
             $table-> text('biography');
+            $table->string('photo_path')->nullable();
             $table->timestamps();
         });
     }
