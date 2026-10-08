@@ -1,6 +1,5 @@
 # Referencia de la API
 
-
 **Base URL:** `http://localhost:8000/api/v1`
 
 Todas las respuestas son JSON. Envía siempre el header `Accept: application/json`.
@@ -16,10 +15,13 @@ Authorization: Bearer <token>
 | Valor | Descripción |
 |---|---|
 | `student` | Estudiante. Se inscribe a cursos y los consume. **Es el rol con el que nace toda cuenta nueva.** |
-| `instructor` | Instructor. Crea y publica cursos. Lo asigna un administrador. |
-| `admin` | Administrador. Gestiona cuentas y roles. Se crea desde el seeder inicial o lo otorga otro administrador. |
+| `instructor` | Instructor. Crea cursos y los envía a revisión. Cualquier estudiante puede darse de alta completando su perfil público. |
+| `admin` | Administrador. Gestiona cuentas y aprueba cursos. Se crea desde el seeder inicial. |
 
-**El rol no se elige al registrarse.** Toda cuenta se crea como `student`; 
+**El rol no se elige al registrarse.** Toda cuenta se crea como `student`; para
+volverse `instructor`, el propio usuario se da de alta en
+[`POST /instructors`](#post-instructors) completando su perfil público. El rol
+`admin` solo se crea desde el seeder inicial.
 
 ## Endpoints
 
@@ -29,7 +31,8 @@ Authorization: Bearer <token>
 | `POST` | [`/auth/login`](#post-authlogin) | Público | Valida credenciales y devuelve un token |
 | `POST` | [`/auth/logout`](#post-authlogout) | Token | Revoca el token utilizado |
 | `GET` | [`/auth/me`](#get-authme) | Token | Devuelve el usuario autenticado |
-
+| `POST` | [`/instructors`](#post-instructors) | Token · Estudiante | Convierte al usuario autenticado en instructor |
+| `POST` | [`/instructors/me/photo`](#post-instructorsmephoto) | Token · Instructor | Sube o reemplaza la foto de perfil del instructor |
 
 ---
 
@@ -243,6 +246,10 @@ No requiere cuerpo.
 }
 ```
 
+Este endpoint **no incluye el perfil de instructor**, aunque el usuario lo
+tenga. Si el `role` es `instructor`, el perfil existe por definición y se
+consulta aparte.
+
 **Casos de error**
 
 | Situación | Código |
@@ -257,4 +264,200 @@ No requiere cuerpo.
 curl -X GET http://localhost:8000/api/v1/auth/me \
   -H "Accept: application/json" \
   -H "Authorization: Bearer <token>"
+```
+
+---
+
+### POST `/instructors`
+
+Convierte al usuario autenticado en instructor, creando su perfil público en la
+misma operación. **Requiere token.**
+
+Solo un usuario con rol `student` puede usar este endpoint. El perfil es
+obligatorio: no existe un instructor sin perfil.
+
+**Cuerpo de la petición**
+
+| Campo | Tipo | Reglas |
+|---|---|---|
+| `headline` | string | Requerido. Máximo 150 caracteres. |
+| `specialty` | string | Requerido. Máximo 100 caracteres. |
+| `biography` | string | Requerido. Entre 50 y 2000 caracteres. |
+
+El endpoint **no acepta un campo `user_id`**. El dueño del perfil se toma del
+token, nunca del cuerpo de la petición.
+
+**Ejemplo**
+
+```json
+{
+  "headline": "Ingeniero de software | 10 años enseñando backend",
+  "specialty": "Desarrollo web",
+  "biography": "Trabajo con Laravel desde 2018 y he dado clases de backend a más de mil alumnos en línea."
+}
+```
+
+**Respuesta 201 Created**
+
+```json
+{
+  "user": {
+    "id": 14,
+    "name": "Juan Rios",
+    "email": "juan@ejemplo.com",
+    "role": "instructor"
+  },
+  "profile": {
+    "headline": "Ingeniero de software | 10 años enseñando backend",
+    "specialty": "Desarrollo web",
+    "biography": "Trabajo con Laravel desde 2018 y he dado clases de backend a más de mil alumnos en línea.",
+    "photo_url": null
+  }
+}
+```
+
+El campo `photo_url` viene en `null` porque la foto se sube aparte, en
+[`POST /instructors/me/photo`](#post-instructorsmephoto). El campo **siempre
+está presente** en la respuesta, con valor o en `null`.
+
+La respuesta incluye el usuario porque **su rol acabó de cambiar**. El cliente
+debe guardar el rol nuevo y actualizar la interfaz con él, sin necesidad de
+pedir `/auth/me`.
+
+**El token sigue siendo válido.** No hace falta volver a iniciar sesión: el rol
+se lee del usuario en cada petición, no del token.
+
+**Respuesta 403 Forbidden**
+
+```json
+{
+  "message": "Solo un estudiante puede darse de alta como instructor."
+}
+```
+
+**Respuesta 422 Unprocessable Content**
+
+```json
+{
+  "message": "The biography field must be at least 50 characters.",
+  "errors": {
+    "biography": ["The biography field must be at least 50 characters."]
+  }
+}
+```
+
+**Casos de error**
+
+| Situación | Código | Campo en `errors` |
+|---|---|---|
+| Sin token o token revocado | 401 | — |
+| El usuario ya es instructor | 403 | — |
+| El usuario es administrador | 403 | — |
+| Biografía menor a 50 caracteres | 422 | `biography` |
+| Titular mayor a 150 caracteres | 422 | `headline` |
+| Campo requerido faltante | 422 | el campo correspondiente |
+
+**Ejemplo con curl**
+
+```bash
+curl -X POST http://localhost:8000/api/v1/instructors \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{
+    "headline": "Ingeniero de software | 10 años enseñando backend",
+    "specialty": "Desarrollo web",
+    "biography": "Trabajo con Laravel desde 2018 y he dado clases de backend a más de mil alumnos en línea."
+  }'
+```
+
+---
+
+### POST `/instructors/me/photo`
+
+Sube o reemplaza la foto de perfil del instructor autenticado.
+**Requiere token.** Solo un usuario con rol `instructor` puede usarlo.
+
+**Este endpoint no recibe JSON.** El cuerpo tiene que ser
+`multipart/form-data`, porque lleva un archivo.
+
+> **No establezcas el encabezado `Content-Type` a mano.** Multipart necesita un
+> separador que el cliente genera solo. En `fetch` con `FormData` y en curl con
+> `-F` se pone automáticamente; si lo escribes tú, el servidor no puede leer el
+> cuerpo y responde 422 diciendo que no mandaste foto.
+
+**Autenticación**
+
+```
+Authorization: Bearer <token>
+```
+
+**Cuerpo de la petición**
+
+| Campo | Tipo | Reglas |
+|---|---|---|
+| `photo` | archivo | Requerido. Imagen `jpg`, `jpeg`, `png` o `webp`. Máximo 4 MB. Mínimo 200×200 píxeles. |
+
+El método tiene que ser `POST`, no `PUT` ni `PATCH`: PHP solo interpreta
+`multipart/form-data` en peticiones `POST`.
+
+**Respuesta 200 OK**
+
+```json
+{
+  "profile": {
+    "headline": "Ingeniero de software | 10 años enseñando backend",
+    "specialty": "Desarrollo web",
+    "biography": "Trabajo con Laravel desde 2018 y he dado clases de backend a más de mil alumnos en línea.",
+    "photo_url": "http://localhost:8000/storage/instructors/yapGZ9cNobPTzbPTOATy6biwtJWuUZexYKIeroSn.jpg"
+  }
+}
+```
+
+La foto anterior se borra del servidor automáticamente. El nombre del archivo
+lo genera el servidor; el nombre original que subió el usuario se descarta.
+
+**El dominio de `photo_url` depende de la variable `APP_URL`** de quien levante
+la API. Si la consumes desde un emulador o un teléfono, `localhost` no va a
+resolver: quien levante el servidor tiene que poner su IP de red local en
+`APP_URL`.
+
+**Respuesta 403 Forbidden**
+
+```json
+{
+  "message": "Solo un instructor puede cambiar su foto de perfil."
+}
+```
+
+**Respuesta 422 Unprocessable Content**
+
+```json
+{
+  "message": "The photo field must be an image.",
+  "errors": {
+    "photo": ["The photo field must be an image."]
+  }
+}
+```
+
+**Casos de error**
+
+| Situación | Código | Campo en `errors` |
+|---|---|---|
+| Sin token o token revocado | 401 | — |
+| El usuario no es instructor | 403 | — |
+| El archivo no es una imagen | 422 | `photo` |
+| Formato distinto a jpg, jpeg, png o webp | 422 | `photo` |
+| Imagen mayor a 4 MB | 422 | `photo` |
+| Imagen menor a 200×200 píxeles | 422 | `photo` |
+| No se envió el campo `photo` | 422 | `photo` |
+
+**Ejemplo con curl**
+
+```bash
+curl -X POST http://localhost:8000/api/v1/instructors/me/photo \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -F "photo=@/ruta/a/foto.jpg"
 ```
