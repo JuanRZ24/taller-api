@@ -17,7 +17,12 @@ class AuthController extends Controller
         private readonly AuthService $authService,
     ) {}
     
-
+        /**
+     * Registrar una cuenta
+     *
+     * Crea una cuenta nueva con rol de estudiante y devuelve un token de acceso.
+     * El rol no se puede elegir: toda cuenta nace como estudiante.
+     */
     public function register (RegisterRequest $request): JsonResponse
     {
         $resultado = $this->authService->register($request->validated());
@@ -27,7 +32,13 @@ class AuthController extends Controller
             'token' => $resultado['token'],
         ], 201);
     }
-
+    /**
+     * Iniciar sesión
+     *
+     * Valida las credenciales y devuelve un token. Un correo inexistente y una
+     * contraseña incorrecta devuelven el mismo mensaje, para no revelar si una
+     * cuenta está registrada.
+     */
     public function login(LoginRequest $request): JsonResponse
     {
         $resultado = $this->authService->login($request->validated());
@@ -38,6 +49,11 @@ class AuthController extends Controller
         ], 200);
     }
 
+    /**
+     * Cerrar sesión
+     *
+     * Invalida el token de acceso del usuario.
+     */
     public function logout(Request $request): Response
     {
         $this->authService->logout($request->user());
