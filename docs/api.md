@@ -33,6 +33,7 @@ volverse `instructor`, el propio usuario se da de alta en
 | `GET` | [`/auth/me`](#get-authme) | Token | Devuelve el usuario autenticado |
 | `POST` | [`/instructors`](#post-instructors) | Token · Estudiante | Convierte al usuario autenticado en instructor |
 | `POST` | [`/instructors/me/photo`](#post-instructorsmephoto) | Token · Instructor | Sube o reemplaza la foto de perfil del instructor |
+| `GET` | [`/categories`](#get-categories) | Público | Lista el catálogo de categorías |
 
 ---
 
@@ -460,4 +461,57 @@ curl -X POST http://localhost:8000/api/v1/instructors/me/photo \
   -H "Accept: application/json" \
   -H "Authorization: Bearer <token>" \
   -F "photo=@/ruta/a/foto.jpg"
+```
+
+---
+
+### GET `/categories`
+
+Lista el catálogo completo de categorías, ordenado por nombre.
+**Ruta pública.**
+
+Las categorías son un catálogo fijo que se siembra desde el seeder. No hay
+endpoints para crearlas, editarlas ni borrarlas.
+
+**Cuerpo de la petición**
+
+No requiere cuerpo ni parámetros.
+
+**Respuesta 200 OK**
+
+```json
+{
+  "categories": [
+    { "id": 3, "name": "Bases de datos" },
+    { "id": 4, "name": "Ciencia de datos" },
+    { "id": 2, "name": "Desarrollo móvil" },
+    { "id": 1, "name": "Desarrollo web" },
+    { "id": 5, "name": "Diseño" },
+    { "id": 8, "name": "Idiomas" },
+    { "id": 7, "name": "Negocios y marketing" },
+    { "id": 6, "name": "Redes y seguridad" }
+  ]
+}
+```
+
+**La respuesta no está paginada.** El catálogo es fijo y corto, así que llega
+completo en una sola petición.
+
+**Los ids no vienen en orden.** El orden es alfabético por nombre, no por id.
+No asumas que el id corresponde a la posición en la lista.
+
+**Para qué sirve el `id`:** es el valor que se manda como `category_id` al
+crear un curso. El desplegable del formulario muestra el `name` y envía el
+`id`.
+
+**Casos de error**
+
+Este endpoint no tiene casos de error. Si no hay categorías sembradas,
+devuelve 200 con un arreglo vacío.
+
+**Ejemplo con curl**
+
+```bash
+curl -X GET http://localhost:8000/api/v1/categories \
+  -H "Accept: application/json"
 ```
