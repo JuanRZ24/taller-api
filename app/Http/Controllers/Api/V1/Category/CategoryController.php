@@ -9,6 +9,12 @@ use Illuminate\Http\JsonResponse;
 
 class CategoryController extends Controller
 {
+      /**
+     * Listar categorías
+     *
+     * Catálogo completo ordenado por nombre, sin paginar. El `id` es el valor
+     * que se manda como `category_id` al crear un curso.
+     */
     public function index(): JsonResponse
     {
         $categories = Category::orderBy('name')->get();
