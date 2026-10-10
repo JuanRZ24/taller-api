@@ -14,11 +14,11 @@ class CoursePolicy
         return $user->role === UserRole::Instructor;
     }
 
-    public function view(User $user, Course $course): bool
-    {
-        return $course->status === CourseStatus::Published
-            || $this->esDueno($user, $course);
-    }
+   public function view(?User $user, Course $course): bool
+{
+    return $course->status === CourseStatus::Published
+        || ($user && $this->esDueno($user, $course));
+}
 
     public function update(User $user, Course $course): bool
     {
