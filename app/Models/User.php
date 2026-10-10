@@ -12,6 +12,7 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Laravel\Sanctum\HasApiTokens;
 use App\Enums\UserRole;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Enums\UserStatus;
 
 #[Fillable(['name', 'email', 'password'])]
@@ -40,5 +41,10 @@ class User extends Authenticatable
     public function instructorProfile(): HasOne
     {
         return $this->hasOne(InstructorProfile::class);
+    }
+
+        public function courses(): HasMany
+    {
+        return $this->hasMany(Course::class);
     }
 }
