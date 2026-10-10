@@ -60,7 +60,12 @@ class AuthController extends Controller
 
         return response()->noContent();
     } 
-
+    /**
+     * Usuario autenticado
+     *
+     * Devuelve los datos del usuario a partir del token. No incluye el perfil
+     * de instructor, aunque el usuario lo tenga.
+     */
     public function me(Request $request): JsonResponse
     {
         return response()->json([
