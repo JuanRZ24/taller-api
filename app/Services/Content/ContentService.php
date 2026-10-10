@@ -3,6 +3,7 @@
 namespace App\Services\Content;
 
 use App\Models\Content;
+use Illuminate\Support\Facades\DB;
 use App\Models\Module;
 
 class ContentService
@@ -42,5 +43,18 @@ class ContentService
             'body' => $data['body'] ?? null,
             'url' => $data['url'] ?? null,
         ];
+    }
+
+
+    /**
+     * @param  array<int, int>  $ids
+     */
+    public function reorder(array $ids): void
+    {
+        DB::transaction(function () use ($ids) {
+            foreach ($ids as $i => $id) {
+                Content::whereKey($id)->update(['position' => $i + 1]);
+            }
+        });
     }
 }

@@ -36,4 +36,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/modules/{module}/contents', [ContentController::class, 'store'])->whereNumber('module');
     Route::patch('/contents/{content}', [ContentController::class, 'update'])->whereNumber('content');
     Route::delete('/contents/{content}', [ContentController::class, 'destroy'])->whereNumber('content');
+    Route::patch('/courses/{course}/modules/order', [ModuleController::class, 'reorder'])->whereNumber('course');
+    Route::patch('/modules/{module}/contents/order', [ContentController::class, 'reorder'])->whereNumber('module');
 });

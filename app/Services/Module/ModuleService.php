@@ -4,6 +4,7 @@ namespace App\Services\Module;
 
 use App\Models\Course;
 use App\Models\Module;
+use Illuminate\Support\Facades\DB;
 
 class ModuleService
 {
@@ -27,5 +28,17 @@ class ModuleService
     public function destroy(Module $module): void
     {
         $module->delete();
+    }
+
+    /**
+     * @param  array<int, int>  $ids
+     */
+    public function reorder(array $ids): void
+    {
+        DB::transaction(function () use ($ids) {
+            foreach ($ids as $i => $id) {
+                Module::whereKey($id)->update(['position' => $i + 1]);
+            }
+        });
     }
 }

@@ -10,6 +10,7 @@ use App\Models\Course;
 use App\Models\Module;
 use App\Services\Module\ModuleService;
 use Illuminate\Http\JsonResponse;
+use App\Http\Requests\Module\ReorderModulesRequest;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Gate;
 
@@ -57,5 +58,22 @@ class ModuleController extends Controller
         $this->moduleService->destroy($module);
 
         return response()->noContent();
+    }
+
+    /**
+     * Reordenar los módulos
+     *
+     * Recibe los ids en el orden deseado y reescribe las posiciones. El arreglo
+     * tiene que traer todos los módulos del curso, sin repetir ni omitir.
+     */
+    public function reorder(ReorderModulesRequest $request, Course $course): JsonResponse
+    {
+        $this->moduleService->reorder($request->validated()['modules']);
+
+        return response()->json([
+            'modules' => ModuleResource::collection(
+                $course->modules()->with('contents')->get()
+            ),
+        ]);
     }
 }

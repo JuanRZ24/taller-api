@@ -7,6 +7,7 @@ use App\Http\Requests\Content\StoreContentRequest;
 use App\Http\Requests\Content\UpdateContentRequest;
 use App\Http\Resources\ContentResource;
 use App\Models\Content;
+use App\Http\Requests\Content\ReorderContentsRequest;
 use App\Models\Module;
 use App\Services\Content\ContentService;
 use Illuminate\Http\JsonResponse;
@@ -59,5 +60,17 @@ class ContentController extends Controller
         $this->contentService->destroy($content);
 
         return response()->noContent();
+    }
+
+    /**
+     * Reordenar los contenidos de un módulo
+     */
+    public function reorder(ReorderContentsRequest $request, Module $module): JsonResponse
+    {
+        $this->contentService->reorder($request->validated()['contents']);
+
+        return response()->json([
+            'contents' => ContentResource::collection($module->contents()->get()),
+        ]);
     }
 }
