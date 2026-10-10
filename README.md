@@ -20,11 +20,40 @@ docker compose exec app php artisan migrate
 
 La API queda en `http://localhost:8000`.
 
+## Datos de demostración
+
+Para trabajar con datos realistas —instructores con perfil y cursos en los
+cuatro estados— hay un seeder aparte del inicial:
+
+```bash
+docker compose exec app php artisan migrate:fresh --seed
+docker compose exec app php artisan db:seed --class=DemoSeeder
+```
+
+> **`migrate:fresh` borra toda la base.** Úsalo solo en local.
+
+Siembra 13 cursos: 10 publicados, 1 en revisión, 1 en borrador y 1 rechazado.
+El reparto es a propósito, para que las pantallas tengan que resolver los
+cuatro estados y no solo el caso feliz.
+
+Todas las cuentas de demostración usan la contraseña `password`:
+
+| Correo | Rol |
+|---|---|
+| `admin@demo.test` | Administrador |
+| `ana@demo.test` | Instructora, 5 cursos |
+| `diego@demo.test` | Instructor, 4 cursos |
+| `laura@demo.test` | Instructora, 4 cursos |
+
+Este seeder **no se ejecuta con `db:seed` a secas**: hay que nombrarlo. No
+queremos cuentas con contraseña conocida en el servidor.
+
 ## Servicios
 
 | Servicio | URL |
 |---|---|
 | API | http://localhost:8000 |
+| Documentación interactiva | http://localhost:8000/docs/api |
 | Mailpit (correos) | http://localhost:8025 |
 | PostgreSQL | localhost:5432 |
 
@@ -37,8 +66,9 @@ docker compose logs -f app                         # ver logs
 docker compose restart                             # reiniciar todo
 ```
 
-> Después de instalar un paquete con Composer, reinicia los contenedores o el
-> autoloader se queda en caché.
+> Después de instalar un paquete con Composer, o de crear una clase o una ruta
+> nueva, reinicia el contenedor `app`. El opcache de PHP-FPM está configurado
+> para no revalidar archivos, así que sigue sirviendo la versión anterior.
 
 ## Conectarse desde un dispositivo móvil
 
@@ -54,6 +84,10 @@ en la misma red.
 
 En el emulador de Android, la dirección del host es `10.0.2.2`.
 
+> La misma IP tiene que ir en `APP_URL` dentro del `.env`, o las URLs de las
+> imágenes que devuelve la API van a apuntar a `localhost` y no se van a ver
+> desde el celular.
+
 ## API
 
 **Base URL:** `http://localhost:8000/api/v1`
@@ -61,4 +95,6 @@ En el emulador de Android, la dirección del host es `10.0.2.2`.
 Todas las respuestas son JSON. Envía el header `Accept: application/json`.
 Las rutas protegidas requieren `Authorization: Bearer <token>`.
 
-La referencia completa de endpoints está en [docs/api.md](docs/api.md).
+La referencia completa de endpoints está en [docs/api.md](docs/api.md), y la
+documentación interactiva, donde puedes probar las peticiones, en
+[`/docs/api`](http://localhost:8000/docs/api).
