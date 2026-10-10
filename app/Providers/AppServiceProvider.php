@@ -28,11 +28,13 @@ class AppServiceProvider extends ServiceProvider
             ->withDocumentTransformers(function (OpenApi $openApi) {
                 $openApi->secure(SecurityScheme::http('bearer'));
             })
-            ->withOperationTransformers(function (Operation $operation, RouteInfo $routeInfo) {
+                        ->withOperationTransformers(function (Operation $operation, RouteInfo $routeInfo) {
                 $protegida = collect($routeInfo->route->gatherMiddleware())
                     ->contains(fn ($m) => is_string($m) && Str::startsWith($m, 'auth:'));
 
-                if (! $protegida) {
+                $tokenOpcional = count($routeInfo->phpDoc()->getTagsByName('@tokenOpcional')) > 0;
+
+                if (! $protegida && ! $tokenOpcional) {
                     $operation->security = [];
                 }
             });

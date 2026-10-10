@@ -4,6 +4,8 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\Auth\AuthController;
 use App\Http\Controllers\Api\V1\Category\CategoryController;
 use App\Http\Controllers\Api\V1\Course\CourseController;
+use App\Http\Controllers\Api\V1\Module\ModuleController;
+use App\Http\Controllers\Api\V1\Content\ContentController;
 use App\Http\Controllers\Api\V1\Instructor\InstructorController;
 
 
@@ -28,5 +30,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/courses/{course}', [CourseController::class, 'destroy'])->whereNumber('course');
     Route::post('/instructors', [InstructorController::class, 'store']);
     Route::post('/instructors/me/photo', [InstructorController::class, 'updatePhoto']);
-   
+    Route::post('/courses/{course}/modules', [ModuleController::class, 'store'])->whereNumber('course');
+    Route::patch('/modules/{module}', [ModuleController::class, 'update'])->whereNumber('module');
+    Route::delete('/modules/{module}', [ModuleController::class, 'destroy'])->whereNumber('module');
+    Route::post('/modules/{module}/contents', [ContentController::class, 'store'])->whereNumber('module');
+    Route::patch('/contents/{content}', [ContentController::class, 'update'])->whereNumber('content');
+    Route::delete('/contents/{content}', [ContentController::class, 'destroy'])->whereNumber('content');
+    Route::patch('/courses/{course}/modules/order', [ModuleController::class, 'reorder'])->whereNumber('course');
+    Route::patch('/modules/{module}/contents/order', [ContentController::class, 'reorder'])->whereNumber('module');
 });

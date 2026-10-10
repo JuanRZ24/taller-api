@@ -40,6 +40,14 @@ volverse `instructor`, el propio usuario se da de alta en
 | `GET` | [`/courses/me`](#get-coursesme) | Token | Cursos del instructor autenticado |
 | `PATCH` | [`/courses/{course}`](#patch-coursescourse) | Token · Dueño | Modifica un curso |
 | `DELETE` | [`/courses/{course}`](#delete-coursescourse) | Token · Dueño | Elimina un curso |
+| `POST` | [`/courses/{course}/modules`](#post-coursescoursemodules) | Token · Dueño | Agrega un módulo al final del curso |
+| `PATCH` | [`/modules/{module}`](#patch-modulesmodule) | Token · Dueño | Renombra un módulo |
+| `DELETE` | [`/modules/{module}`](#delete-modulesmodule) | Token · Dueño | Elimina un módulo y sus contenidos |
+| `PATCH` | [`/courses/{course}/modules/order`](#patch-coursescoursemodulesorder) | Token · Dueño | Reordena los módulos |
+| `POST` | [`/modules/{module}/contents`](#post-modulesmodulecontents) | Token · Dueño | Agrega un contenido al módulo |
+| `PATCH` | [`/contents/{content}`](#patch-contentscontent) | Token · Dueño | Modifica un contenido |
+| `DELETE` | [`/contents/{content}`](#delete-contentscontent) | Token · Dueño | Elimina un contenido |
+| `PATCH` | [`/modules/{module}/contents/order`](#patch-modulesmodulecontentsorder) | Token · Dueño | Reordena los contenidos del módulo |
 
 ---
 
@@ -864,4 +872,418 @@ Sin contenido. Una petición posterior a `GET /courses/{course}` devuelve 404.
 curl -X DELETE http://localhost:8000/api/v1/courses/11 \
   -H "Accept: application/json" \
   -H "Authorization: Bearer <token>"
+```
+---
+
+## Módulos y contenidos
+
+Un curso se estructura en **módulos**, y cada módulo contiene **contenidos**.
+No existe un contenido suelto: siempre pertenece a un módulo.
+
+**Todos estos endpoints autorizan contra el curso**, no contra el módulo ni el
+contenido. La propiedad vive en el curso: modificar un contenido es modificar
+el curso al que pertenece. En la práctica eso significa dos cosas:
+
+- Solo el dueño del curso puede tocar su estructura.
+- Si el curso está en `pending` o `published`, **toda su estructura queda
+  congelada**: no admite módulos nuevos, ni ediciones, ni reordenamientos.
+
+El 403 de todos ellos devuelve el mismo mensaje, `No puedes modificar este
+curso.`, sin distinguir entre "no eres el dueño" y "está congelado".
+
+**La estructura completa se lee con [`GET /courses/{course}`](#get-coursescourse)**,
+que devuelve los módulos con sus contenidos anidados. No hay un endpoint
+aparte para listarlos.
+
+### Tipos de contenido
+
+| Tipo | Campo que exige | Disponible |
+|---|---|---|
+| `text` | `body` | Sí |
+| `link` | `url` | Sí |
+| `video` | `url` (enlace de YouTube o Vimeo) | Sí |
+| `file` | archivo subido | **No, en un sprint posterior** |
+
+El tipo `file` existe en el modelo y en la base de datos, pero **los endpoints
+lo rechazan** mientras no exista la subida de archivos. Enviarlo devuelve 422.
+
+El campo que no corresponde al tipo **está prohibido**, no solo es opcional:
+enviar `body` junto con `type: video` devuelve 422. Y al cambiar el tipo de un
+contenido, los campos que dejan de aplicar se limpian automáticamente.
+
+---
+
+### POST `/courses/{course}/modules`
+
+Agrega un módulo **al final** del curso. **Requiere token.**
+
+La posición la calcula el servidor; no se puede elegir. Para cambiarla, usa
+[`PATCH /courses/{course}/modules/order`](#patch-coursescoursemodulesorder).
+
+**Cuerpo de la petición**
+
+| Campo | Tipo | Reglas |
+|---|---|---|
+| `title` | string | Requerido. Máximo 150 caracteres. |
+
+**Respuesta 201 Created**
+
+```json
+{
+  "module": {
+    "id": 3,
+    "title": "Inyección SQL",
+    "position": 2,
+    "contents": []
+  }
+}
+```
+
+**Casos de error**
+
+| Situación | Código |
+|---|---|
+| Sin token | 401 |
+| No eres el dueño del curso | 403 |
+| El curso está en `pending` o `published` | 403 |
+| El curso no existe | 404 |
+| Título vacío o mayor a 150 | 422 |
+
+**Ejemplo con curl**
+
+```bash
+curl -X POST http://localhost:8000/api/v1/courses/13/modules \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{"title": "Inyección SQL"}'
+```
+
+---
+
+### PATCH `/modules/{module}`
+
+Renombra un módulo. **Requiere token.**
+
+Solo cambia el título. La posición se modifica con el endpoint de
+reordenamiento.
+
+**Cuerpo de la petición**
+
+| Campo | Tipo | Reglas |
+|---|---|---|
+| `title` | string | Requerido. Máximo 150 caracteres. |
+
+**Respuesta 200 OK**
+
+Mismo formato que `POST /courses/{course}/modules`.
+
+**Casos de error**
+
+| Situación | Código |
+|---|---|
+| Sin token | 401 |
+| No eres el dueño del curso | 403 |
+| El curso está congelado | 403 |
+| El módulo no existe | 404 |
+| Título vacío o mayor a 150 | 422 |
+
+**Ejemplo con curl**
+
+```bash
+curl -X PATCH http://localhost:8000/api/v1/modules/3 \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{"title": "Inyección SQL y XSS"}'
+```
+
+---
+
+### DELETE `/modules/{module}`
+
+Elimina un módulo. **Requiere token.**
+
+> **Se lleva todos sus contenidos.** El borrado es definitivo y no hay
+> papelera. La interfaz debe pedir confirmación indicando cuántos contenidos
+> se van a perder.
+
+Las posiciones de los módulos restantes **no se recalculan**: pueden quedar
+huecos (1, 3, 4). No importa, porque lo único que se usa es el orden relativo,
+y el endpoint de reordenamiento los normaliza la próxima vez que se use.
+
+**Respuesta 204 No Content**
+
+**Casos de error**
+
+| Situación | Código |
+|---|---|
+| Sin token | 401 |
+| No eres el dueño del curso | 403 |
+| El curso está congelado | 403 |
+| El módulo no existe | 404 |
+
+**Ejemplo con curl**
+
+```bash
+curl -X DELETE http://localhost:8000/api/v1/modules/3 \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <token>"
+```
+
+---
+
+### PATCH `/courses/{course}/modules/order`
+
+Reordena los módulos de un curso. **Requiere token.**
+
+**No se envía un movimiento, se envía el orden completo.** El cliente manda
+todos los ids en el orden deseado y el servidor reescribe las posiciones
+empezando en 1.
+
+Eso significa que sirve igual para flechas de subir y bajar que para arrastrar
+y soltar: la interfaz reacomoda su arreglo local y envía la lista. Y de paso
+normaliza los huecos que hayan dejado los borrados.
+
+**Cuerpo de la petición**
+
+| Campo | Tipo | Reglas |
+|---|---|---|
+| `modules` | arreglo de enteros | Requerido. Debe contener **exactamente** todos los módulos del curso, sin repetir ni omitir ninguno. |
+
+**Ejemplo**
+
+```json
+{ "modules": [5, 3, 4] }
+```
+
+**Respuesta 200 OK**
+
+Devuelve los módulos con sus posiciones nuevas, leídas de la base de datos.
+
+```json
+{
+  "modules": [
+    { "id": 5, "title": "Manejo de sesiones", "position": 1, "contents": [] },
+    { "id": 3, "title": "Inyección SQL", "position": 2, "contents": [] },
+    { "id": 4, "title": "XSS", "position": 3, "contents": [] }
+  ]
+}
+```
+
+**Casos de error**
+
+| Situación | Código | Mensaje de validación |
+|---|---|---|
+| Sin token | 401 | — |
+| No eres el dueño o el curso está congelado | 403 | — |
+| Faltan o sobran módulos en la lista | 422 | `must contain N items` |
+| Un id repetido | 422 | `has a duplicate value` |
+| Un módulo que no es de este curso | 422 | `the selected modules.N is invalid` |
+
+Las tres reglas de validación garantizan, juntas, que la lista sea una
+permutación exacta de los módulos del curso. La tercera es la importante: sin
+ella se podría reordenar el curso de otra persona.
+
+**Ejemplo con curl**
+
+```bash
+curl -X PATCH http://localhost:8000/api/v1/courses/13/modules/order \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{"modules": [5, 3, 4]}'
+```
+
+---
+
+### POST `/modules/{module}/contents`
+
+Agrega un contenido **al final** del módulo. **Requiere token.**
+
+**Cuerpo de la petición**
+
+| Campo | Tipo | Reglas |
+|---|---|---|
+| `title` | string | Requerido. Máximo 150 caracteres. |
+| `type` | string | Requerido. `text`, `link` o `video`. El tipo `file` se rechaza. |
+| `body` | string | Requerido **si** el tipo es `text`. Prohibido en cualquier otro caso. |
+| `url` | string | Requerido **si** el tipo es `link` o `video`. Prohibido en cualquier otro caso. Debe ser una URL válida, máximo 500 caracteres. |
+
+**Ejemplo**
+
+```json
+{
+  "title": "Qué es la inyección SQL",
+  "type": "text",
+  "body": "Una inyección SQL ocurre cuando entrada del usuario se concatena en una consulta."
+}
+```
+
+```json
+{
+  "title": "Demostración en video",
+  "type": "video",
+  "url": "https://youtube.com/watch?v=abc"
+}
+```
+
+**Respuesta 201 Created**
+
+```json
+{
+  "content": {
+    "id": 2,
+    "title": "Demostración en video",
+    "type": "video",
+    "position": 2,
+    "body": null,
+    "url": "https://youtube.com/watch?v=abc",
+    "file_url": null
+  }
+}
+```
+
+Los tres campos de contenido —`body`, `url` y `file_url`— **vienen siempre en
+la respuesta**, con valor o en `null` según el tipo. El cliente no tiene que
+preguntar si existen.
+
+**Casos de error**
+
+| Situación | Código | Campo en `errors` |
+|---|---|---|
+| Sin token | 401 | — |
+| No eres el dueño o el curso está congelado | 403 | — |
+| El módulo no existe | 404 | — |
+| Tipo `file` | 422 | `type` |
+| Tipo `text` sin `body` | 422 | `body` |
+| Tipo `video` o `link` sin `url` | 422 | `url` |
+| `body` enviado con un tipo que no es `text` | 422 | `body` |
+| `url` enviada con tipo `text` | 422 | `url` |
+| `url` con formato inválido | 422 | `url` |
+
+**Ejemplo con curl**
+
+```bash
+curl -X POST http://localhost:8000/api/v1/modules/3/contents \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{"title": "Enlace a OWASP", "type": "link", "url": "https://owasp.org/Top10/"}'
+```
+
+---
+
+### PATCH `/contents/{content}`
+
+Modifica un contenido. **Requiere token.**
+
+**No es una actualización parcial:** hay que enviar el contenido completo,
+incluido el `type`. La razón es que el tipo determina qué campo aplica, así
+que no tendría sentido cambiar el `body` sin saber si el contenido sigue
+siendo de texto.
+
+**Al cambiar el tipo, los campos que dejan de aplicar se limpian solos.** Si un
+contenido era de tipo `video` con una `url` y lo cambias a `text`, la `url`
+queda en `null` en la base de datos. No hay que mandarla vacía a mano.
+
+**Cuerpo de la petición**
+
+Las mismas reglas que `POST /modules/{module}/contents`.
+
+**Respuesta 200 OK**
+
+Mismo formato que la creación.
+
+**Casos de error**
+
+Los mismos que la creación, más 404 si el contenido no existe.
+
+**Ejemplo con curl**
+
+```bash
+curl -X PATCH http://localhost:8000/api/v1/contents/2 \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{"title": "Ahora es texto", "type": "text", "body": "El contenido en texto plano."}'
+```
+
+---
+
+### DELETE `/contents/{content}`
+
+Elimina un contenido. **Requiere token.** El borrado es definitivo.
+
+Igual que con los módulos, las posiciones restantes pueden quedar con huecos
+hasta el próximo reordenamiento.
+
+**Respuesta 204 No Content**
+
+**Casos de error**
+
+| Situación | Código |
+|---|---|
+| Sin token | 401 |
+| No eres el dueño o el curso está congelado | 403 |
+| El contenido no existe | 404 |
+
+**Ejemplo con curl**
+
+```bash
+curl -X DELETE http://localhost:8000/api/v1/contents/2 \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <token>"
+```
+
+---
+
+### PATCH `/modules/{module}/contents/order`
+
+Reordena los contenidos de un módulo. **Requiere token.**
+
+Funciona igual que el reordenamiento de módulos: se envía la lista completa de
+ids en el orden deseado.
+
+**Cuerpo de la petición**
+
+| Campo | Tipo | Reglas |
+|---|---|---|
+| `contents` | arreglo de enteros | Requerido. Debe contener **exactamente** todos los contenidos del módulo, sin repetir ni omitir ninguno. |
+
+**Ejemplo**
+
+```json
+{ "contents": [3, 2] }
+```
+
+**Respuesta 200 OK**
+
+```json
+{
+  "contents": [
+    { "id": 3, "title": "Enlace a OWASP", "type": "link", "position": 1, "body": null, "url": "https://owasp.org/Top10/", "file_url": null },
+    { "id": 2, "title": "Ahora es texto", "type": "text", "position": 2, "body": "El contenido en texto plano.", "url": null, "file_url": null }
+  ]
+}
+```
+
+**Casos de error**
+
+| Situación | Código | Mensaje de validación |
+|---|---|---|
+| Sin token | 401 | — |
+| No eres el dueño o el curso está congelado | 403 | — |
+| Faltan o sobran contenidos | 422 | `must contain N items` |
+| Un id repetido | 422 | `has a duplicate value` |
+| Un contenido que no es de este módulo | 422 | `the selected contents.N is invalid` |
+
+**Ejemplo con curl**
+
+```bash
+curl -X PATCH http://localhost:8000/api/v1/modules/3/contents/order \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{"contents": [3, 2]}'
 ```
