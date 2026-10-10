@@ -25,6 +25,7 @@ class CourseResource extends JsonResource
                 : null,
             'category' => new CategoryResource($this->whenLoaded('category')),
             'created_at' => $this->created_at,
+            'modules' => ModuleResource::collection($this->whenLoaded('modules')),
         ];
     }
 }

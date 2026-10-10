@@ -63,18 +63,20 @@ class CourseController extends Controller
         ]);
     }
 
-        /**
+    /**
      * Ver un curso
      *
      * Devuelve un curso. Accesible para su dueño en cualquier estado, y para
      * cualquiera si está publicado.
+     *
+     * @tokenOpcional
      */
     public function show(Course $course): JsonResponse
     {
         Gate::authorize('view', $course);
 
         return response()->json([
-            'course' => new CourseResource($course->load('category')),
+            'course' => new CourseResource($course->load('category','modules.contents')),
         ]);
     }
 
