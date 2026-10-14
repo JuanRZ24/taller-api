@@ -6,6 +6,9 @@ use App\Enums\CourseLevel;
 use App\Enums\CourseStatus;
 use App\Enums\UserRole;
 use App\Models\Category;
+use App\Models\Content;
+use App\Models\Course;
+use App\Models\Module;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 
@@ -58,6 +61,7 @@ class DemoSeeder extends Seeder
             }
 
             $curso->save();
+            $this->sembrarEstructura($curso, $this->estructuras()[$datos['title']] ?? []);
         }
     }
 
@@ -110,6 +114,102 @@ class DemoSeeder extends Seeder
             ['title' => 'Git para trabajo en equipo', 'category' => 'Desarrollo web', 'level' => CourseLevel::Beginner, 'status' => CourseStatus::Pending, 'description' => 'Ramas, merge requests y resolución de conflictos sin miedo. Enfocado en el flujo que usan los equipos reales, incluyendo qué hacer cuando algo sale mal y hay que revertir.'],
             ['title' => 'Diseño de interfaces para desarrolladores', 'category' => 'Diseño', 'level' => CourseLevel::Beginner, 'status' => CourseStatus::Draft, 'description' => 'No necesitas ser diseñador para que tu aplicación no se vea mal. Jerarquía visual, espaciado, tipografía y color, explicados con reglas concretas que puedes aplicar de inmediato.'],
             ['title' => 'Seguridad en aplicaciones web', 'category' => 'Redes y seguridad', 'level' => CourseLevel::Advanced, 'status' => CourseStatus::Rejected, 'description' => 'Las vulnerabilidades más comunes y cómo se previenen desde el código: inyección, asignación masiva, XSS y manejo inseguro de sesiones. Con ejemplos de código vulnerable y su corrección.'],
+        ];
+    }
+
+    private function sembrarEstructura(Course $curso, array $modulos): void
+    {
+        foreach ($modulos as $i => $mod) {
+            $modulo = new Module(['title' => $mod['title']]);
+            $modulo->position = $i + 1;
+            $curso->modules()->save($modulo);
+
+            foreach ($mod['contents'] as $j => $con) {
+                $contenido = new Content([
+                    'title' => $con['title'],
+                    'type' => $con['type'],
+                    'body' => $con['body'] ?? null,
+                    'url' => $con['url'] ?? null,
+                ]);
+                $contenido->position = $j + 1;
+                $modulo->contents()->save($contenido);
+            }
+        }
+    }
+
+        /**
+     * @return array<string, array<int, array<string, mixed>>>
+     */
+    private function estructuras(): array
+    {
+        return [
+            'Laravel desde cero' => [
+                ['title' => 'Antes de empezar', 'contents' => [
+                    ['title' => 'Qué vas a construir', 'type' => 'text', 'body' => 'A lo largo del curso construimos una API completa: autenticación por tokens, validación en su capa, servicios con reglas de negocio y documentación generada desde el código.'],
+                    ['title' => 'Instalación del entorno', 'type' => 'video', 'url' => 'https://www.youtube.com/watch?v=MYyJ4PuL4pY'],
+                    ['title' => 'Documentación oficial', 'type' => 'link', 'url' => 'https://laravel.com/docs'],
+                ]],
+                ['title' => 'Rutas y controladores', 'contents' => [
+                    ['title' => 'El archivo de rutas', 'type' => 'text', 'body' => 'Las rutas se evalúan en orden y la primera que coincide gana. Por eso una ruta con comodín puede atrapar a una ruta específica registrada después.'],
+                    ['title' => 'Controladores en la práctica', 'type' => 'video', 'url' => 'https://www.youtube.com/watch?v=3hcwZFNvOx8'],
+                ]],
+                ['title' => 'Eloquent y relaciones', 'contents' => [
+                    ['title' => 'Modelos y migraciones', 'type' => 'text', 'body' => 'La migración define la estructura y el modelo define el comportamiento. Las dos cosas tienen que contar la misma historia o el código miente.'],
+                    ['title' => 'El problema N+1', 'type' => 'text', 'body' => 'Si listas veinte cursos y cada uno consulta su categoría al serializarse, son veintiún consultas. Con carga ansiosa son dos.'],
+                    ['title' => 'Guía de relaciones', 'type' => 'link', 'url' => 'https://laravel.com/docs/eloquent-relationships'],
+                ]],
+                ['title' => 'Validación y autorización', 'contents' => [
+                    ['title' => 'FormRequests', 'type' => 'text', 'body' => 'Validar en el controlador funciona hasta que la misma regla aparece en tres lugares. El FormRequest es donde esa regla vive una sola vez.'],
+                    ['title' => 'Policies paso a paso', 'type' => 'video', 'url' => 'https://www.youtube.com/watch?v=TcLb2A5Z1gY'],
+                ]],
+            ],
+
+            'APIs REST con PHP moderno' => [
+                ['title' => 'Diseño de la API', 'contents' => [
+                    ['title' => 'Sustantivos, no verbos', 'type' => 'text', 'body' => 'La ruta dice qué cosa y el método HTTP dice qué le haces. Si escribes el verbo en la URL, lo estás diciendo dos veces.'],
+                    ['title' => 'Códigos de estado que importan', 'type' => 'text', 'body' => 'La diferencia entre 401 y 403 es la que más se confunde: el primero es identifícate, el segundo es ya te identificaste y aun así no.'],
+                ]],
+                ['title' => 'Versionado', 'contents' => [
+                    ['title' => 'Por qué /v1 desde el día uno', 'type' => 'text', 'body' => 'Agregar un campo no rompe a nadie. Quitarlo o renombrarlo sí, y para entonces ya hay una app instalada en teléfonos que no vas a poder actualizar.'],
+                    ['title' => 'Guía de versionado', 'type' => 'link', 'url' => 'https://restfulapi.net/versioning/'],
+                ]],
+                ['title' => 'Documentación', 'contents' => [
+                    ['title' => 'Generada contra escrita a mano', 'type' => 'text', 'body' => 'La documentación escrita a mano duplica lo que ya dice el código, y el día que cambias uno y olvidas el otro, miente. La generada no puede desincronizarse.'],
+                ]],
+            ],
+
+            'Seguridad en aplicaciones web' => [
+                ['title' => 'Inyección', 'contents' => [
+                    ['title' => 'Qué es la inyección SQL', 'type' => 'text', 'body' => 'Ocurre cuando entrada del usuario se concatena dentro de una consulta. El constructor de consultas la previene porque separa la instrucción de los datos.'],
+                    ['title' => 'OWASP Top 10', 'type' => 'link', 'url' => 'https://owasp.org/www-project-top-ten/'],
+                ]],
+                ['title' => 'Asignación masiva', 'contents' => [
+                    ['title' => 'El campo que nadie debería mandar', 'type' => 'text', 'body' => 'Si el rol viaja en el cuerpo de la petición, cualquiera se hace administrador con un curl. Lo que decide el servidor no viaja en el formulario.'],
+                ]],
+                ['title' => 'Sesiones y tokens', 'contents' => [
+                    ['title' => 'Tokens opacos contra JWT', 'type' => 'text', 'body' => 'Un JWT lleva los datos escritos adentro y firmados: si cambias el rol en la base, el token viejo sigue diciendo lo de antes hasta que expire. Un token opaco apunta a un renglón y se lee fresco cada vez.'],
+                    ['title' => 'Revocación en la práctica', 'type' => 'video', 'url' => 'https://www.youtube.com/watch?v=F-sFp_AvHc8'],
+                ]],
+            ],
+
+            'Git para trabajo en equipo' => [
+                ['title' => 'Ramas', 'contents' => [
+                    ['title' => 'Cuándo merece rama propia', 'type' => 'text', 'body' => 'La prueba es simple: cuando la integres, ¿la rama de desarrollo puede hacer algo que antes no? Si la respuesta es no, agrúpala con lo que sigue.'],
+                ]],
+                ['title' => 'Conflictos', 'contents' => [
+                    ['title' => 'Resolverlos sin miedo', 'type' => 'text', 'body' => 'Un conflicto no es un error: es Git diciéndote que dos personas tocaron lo mismo y que la decisión es humana, no automática.'],
+                    ['title' => 'Guía de Git Flow', 'type' => 'link', 'url' => 'https://nvie.com/posts/a-successful-git-branching-model/'],
+                ]],
+            ],
+
+            'Diseño de interfaces para desarrolladores' => [
+                ['title' => 'Jerarquía visual', 'contents' => [
+                    ['title' => 'Qué mira el ojo primero', 'type' => 'text', 'body' => 'El tamaño, el peso y el contraste deciden el orden de lectura. Si todo resalta, nada resalta.'],
+                ]],
+                ['title' => 'Espaciado', 'contents' => [
+                    ['title' => 'El espacio también comunica', 'type' => 'text', 'body' => 'Los elementos relacionados van juntos y los que no, separados. La mitad de las interfaces confusas lo son por espaciado parejo, no por falta de color.'],
+                ]],
+            ],
         ];
     }
 }
