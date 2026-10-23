@@ -32,6 +32,8 @@ volverse `instructor`, el propio usuario se da de alta en
 | `POST` | [`/auth/logout`](#post-authlogout) | Token | Revoca el token utilizado |
 | `GET` | [`/auth/me`](#get-authme) | Token | Devuelve el usuario autenticado |
 | `POST` | [`/instructors`](#post-instructors) | Token · Estudiante | Convierte al usuario autenticado en instructor |
+| `GET` | [`/instructors/me`](#get-instructorsme) | Token | Devuelve el perfil del instructor autenticado |
+| `PATCH` | [`/instructors/me`](#patch-instructorsme) | Token · Instructor | Edita el perfil del instructor autenticado |
 | `POST` | [`/instructors/me/photo`](#post-instructorsmephoto) | Token · Instructor | Sube o reemplaza la foto de perfil del instructor |
 | `GET` | [`/categories`](#get-categories) | Público | Lista el catálogo de categorías |
 | `GET` | [`/courses`](#get-courses) | Público | Catálogo de cursos publicados, con filtros |
@@ -476,6 +478,161 @@ curl -X POST http://localhost:8000/api/v1/instructors/me/photo \
   -H "Authorization: Bearer <token>" \
   -F "photo=@/ruta/a/foto.jpg"
 ```
+### GET `/instructors/me`
+
+Devuelve el perfil público del instructor autenticado.
+**Requiere token.**
+
+Sirve para llenar el formulario de edición con los datos actuales: sin este
+endpoint el instructor tendría que volver a escribir todo desde cero cada vez
+que quiera corregir un campo.
+
+**Autenticación**
+
+```
+Authorization: Bearer <token>
+```
+
+No recibe cuerpo ni parámetros. El perfil que devuelve siempre es el del dueño
+del token; no hay forma de pedir el de otra persona.
+
+**Respuesta 200 OK**
+
+```json
+{
+  "profile": {
+    "headline": "Ingeniera de software | 8 años enseñando backend",
+    "specialty": "Desarrollo web",
+    "biography": "Trabajo con PHP y Laravel desde 2017. He dado clases en línea a más de tres mil alumnos y me gusta explicar el porqué de las cosas, no solo el cómo.",
+    "photo_url": null
+  }
+}
+```
+
+`photo_url` es `null` mientras el instructor no haya subido ninguna foto.
+
+**Respuesta 404 Not Found**
+
+```json
+{
+  "message": "Todavia no tienes un perfil de instructor."
+}
+```
+
+Un estudiante autenticado recibe este 404: tiene cuenta válida, pero todavía no
+se ha dado de alta como instructor con [`POST /instructors`](#post-instructors).
+
+**Casos de error**
+
+| Situación | Código |
+|---|---|
+| Sin token o token revocado | 401 |
+| El usuario no tiene perfil de instructor | 404 |
+
+**Ejemplo con curl**
+
+```bash
+curl http://localhost:8000/api/v1/instructors/me \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <token>"
+```
+
+---
+
+### PATCH `/instructors/me`
+
+Edita el perfil público del instructor autenticado.
+**Requiere token.** Solo un usuario con rol `instructor` puede usarlo.
+
+**Actualización parcial:** solo se modifican los campos que mandes. Los que
+omitas se quedan como estaban. No hace falta reenviar la biografía completa
+para corregir el titular.
+
+**La foto no se cambia aquí.** Tiene su propio endpoint,
+[`POST /instructors/me/photo`](#post-instructorsmephoto), porque viaja como
+`multipart/form-data` y no como JSON.
+
+**Autenticación**
+
+```
+Authorization: Bearer <token>
+```
+
+**Cuerpo de la petición**
+
+| Campo | Tipo | Reglas |
+|---|---|---|
+| `headline` | string | Opcional. Si se envía, no puede ir vacío. Máximo 150 caracteres. |
+| `specialty` | string | Opcional. Si se envía, no puede ir vacío. Máximo 100 caracteres. |
+| `biography` | string | Opcional. Si se envía, no puede ir vacío. Entre 50 y 2000 caracteres. |
+
+Las reglas son las mismas que en [`POST /instructors`](#post-instructors), con
+una diferencia: ahí los tres campos son obligatorios, y aquí los tres son
+opcionales. Lo que no cambia son los límites, para que no se pueda crear un
+perfil con unas reglas y editarlo con otras.
+
+Los campos que no están en esta tabla se ignoran en silencio. Mandar `user_id`,
+`photo_path` o `id` no tiene ningún efecto.
+
+**Respuesta 200 OK**
+
+```json
+{
+  "profile": {
+    "headline": "Ingeniera de software | Backend y APIs",
+    "specialty": "Desarrollo web",
+    "biography": "Trabajo con PHP y Laravel desde 2017. He dado clases en línea a más de tres mil alumnos y me gusta explicar el porqué de las cosas, no solo el cómo.",
+    "photo_url": null
+  }
+}
+```
+
+Devuelve el perfil completo ya actualizado, no solo los campos que mandaste.
+
+**Respuesta 403 Forbidden**
+
+```json
+{
+  "message": "Solo un instructor puede editar su perfil."
+}
+```
+
+**Respuesta 422 Unprocessable Content**
+
+```json
+{
+  "message": "The biography field must be at least 50 characters.",
+  "errors": {
+    "biography": ["The biography field must be at least 50 characters."]
+  }
+}
+```
+
+**Casos de error**
+
+| Situación | Código | Campo en `errors` |
+|---|---|---|
+| Sin token o token revocado | 401 | — |
+| El usuario no es instructor | 403 | — |
+| `headline` enviado pero vacío | 422 | `headline` |
+| `headline` de más de 150 caracteres | 422 | `headline` |
+| `specialty` enviada pero vacía | 422 | `specialty` |
+| `specialty` de más de 100 caracteres | 422 | `specialty` |
+| `biography` enviada pero vacía | 422 | `biography` |
+| `biography` de menos de 50 caracteres | 422 | `biography` |
+| `biography` de más de 2000 caracteres | 422 | `biography` |
+
+**Ejemplo con curl**
+
+```bash
+curl -X PATCH http://localhost:8000/api/v1/instructors/me \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{"headline":"Ingeniera de software | Backend y APIs"}'
+```
+
+
 
 ---
 
