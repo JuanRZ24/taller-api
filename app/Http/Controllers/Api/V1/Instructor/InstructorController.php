@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Instructor\StoreInstructorRequest;
 use App\Http\Resources\InstructorProfileResource;
 use App\Http\Resources\UserResource;
+use App\Http\Requests\Instructor\UpdateInstructorRequest;
+use Illuminate\Http\Request;
 use App\Services\Instructor\InstructorService;
 use Illuminate\Http\JsonResponse;
 use App\Http\Requests\Instructor\UpdateInstructorPhotoRequest;
@@ -47,6 +49,43 @@ class InstructorController extends Controller
             $request->user(),
             $request->file('photo'),
         );
+
+        return response()->json([
+            'profile' => new InstructorProfileResource($profile),
+        ]);
+    }
+
+
+
+    /**
+     * Actualizar perfil
+     *
+     * Actualiza el perfil del instructor autenticado. Solo se pueden actualizar
+     * los campos `headline`, `specialty` y `biography`.
+     */
+    public function update(UpdateInstructorRequest $request): JsonResponse
+    {
+        $profile = $this -> instructorService->update(
+            $request->user(),
+            $request->validated(),
+        );
+
+        return response()->json([
+            'profile' => new InstructorProfileResource($profile),
+        ]);
+
+        }
+    /**
+     * Ver mi perfil de instructor
+     *
+     * Devuelve el perfil público del instructor autenticado. Sirve para
+     * llenar el formulario de edición con los datos actuales.
+     */
+        public function show(Request $request): JsonResponse
+    {
+        $profile = $request->user()->instructorProfile;
+
+        abort_if($profile === null, 404, 'Todavia no tienes un perfil de instructor.');
 
         return response()->json([
             'profile' => new InstructorProfileResource($profile),

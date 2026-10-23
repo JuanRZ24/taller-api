@@ -38,4 +38,14 @@ class InstructorService
 
         return $profile;
     }
+
+
+    public function update(User $user, array $data): InstructorProfile
+    {
+        $profile = $user->instructorProfile;
+
+        $profile->update($data);
+
+        return $profile;
+    }
 }
