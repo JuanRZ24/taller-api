@@ -609,28 +609,91 @@ curl -X GET "http://localhost:8000/api/v1/courses?level=beginner&category_id=2" 
 
 ### GET `/courses/{course}`
 
-Devuelve un curso con todos sus datos.
+Devuelve un curso con su temario.
 
 **Acceso mixto.** Si el curso está `published`, cualquiera lo puede ver, sin
 token. En cualquier otro estado, solo su dueño.
 
-**Respuesta 200 OK**
+**El temario se recorta según quién pregunta.** Todos ven la lista de módulos
+y los títulos de las lecciones; solo el dueño del curso ve el material
+(`body`, `url`, `file_url`). Un visitante puede evaluar si le interesa el
+curso, pero no consumirlo sin inscribirse.
+
+**Respuesta 200 OK — cualquiera**
 
 ```json
 {
   "course": {
-    "id": 5,
-    "title": "Laravel desde cero",
-    "description": "Un curso completo de Laravel para quienes vienen de otros lenguajes.",
-    "level": "beginner",
+    "id": 3,
+    "title": "APIs REST con PHP moderno",
+    "description": "Diseño de APIs que no se rompen: versionado, códigos de estado, formatos de error uniformes y documentación generada desde el código.",
+    "level": "intermediate",
     "status": "published",
     "rejection_reason": null,
     "cover_url": null,
-    "category": { "id": 2, "name": "Desarrollo móvil" },
-    "created_at": "2026-10-10T03:14:22.000000Z"
+    "category": { "id": 1, "name": "Desarrollo web" },
+    "instructor": {
+      "id": 5,
+      "name": "Diego Morales",
+      "profile": {
+        "headline": "Desarrollador Android | Kotlin y Java",
+        "specialty": "Desarrollo móvil",
+        "biography": "Llevo seis años construyendo aplicaciones Android para empresas de logística.",
+        "photo_url": null
+      }
+    },
+    "created_at": "2026-10-14T20:02:14.000000Z",
+    "modules": [
+      {
+        "id": 5,
+        "title": "Diseño de la API",
+        "position": 1,
+        "contents": [
+          { "id": 11, "title": "Sustantivos, no verbos", "type": "text", "position": 1 },
+          { "id": 12, "title": "Códigos de estado que importan", "type": "text", "position": 2 }
+        ]
+      }
+    ]
   }
 }
 ```
+
+**Respuesta 200 OK — el dueño del curso**
+
+Idéntica, salvo que cada contenido trae además su material:
+
+```json
+{
+  "id": 11,
+  "title": "Sustantivos, no verbos",
+  "type": "text",
+  "position": 1,
+  "body": "La ruta dice qué cosa y el método HTTP dice qué le haces.",
+  "url": null,
+  "file_url": null
+}
+```
+
+**Campos del curso**
+
+| Campo | Notas |
+|---|---|
+| `instructor.id` | Id del usuario, para enlazar a su perfil |
+| `instructor.profile` | `null` si el instructor no tiene perfil |
+| `modules` | Ordenados por `position`. Arreglo vacío si no hay |
+| `modules[].contents` | Ordenados por `position` |
+
+**Campos del contenido**
+
+| Campo | Quién lo ve |
+|---|---|
+| `id`, `title`, `type`, `position` | Todos |
+| `body` | Solo el dueño. Texto de la lección cuando `type` es `text` |
+| `url` | Solo el dueño. Enlace cuando `type` es `link` o `video` |
+| `file_url` | Solo el dueño. Archivo cuando `type` es `file` |
+
+Las tres llaves **se omiten**, no vienen en `null`. Si el cliente las necesita,
+tiene que comprobar que existan.
 
 **Casos de error**
 
@@ -643,10 +706,17 @@ token. En cualquier otro estado, solo su dueño.
 **Ejemplo con curl**
 
 ```bash
-curl -X GET http://localhost:8000/api/v1/courses/5 \
+curl http://localhost:8000/api/v1/courses/3 \
   -H "Accept: application/json"
 ```
 
+Con token, para ver el material si eres el dueño:
+
+```bash
+curl http://localhost:8000/api/v1/courses/3 \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <token>"
+```
 ---
 
 ### POST `/courses`
