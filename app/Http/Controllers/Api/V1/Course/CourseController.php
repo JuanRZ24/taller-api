@@ -9,6 +9,7 @@ use App\Services\Course\CourseService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use App\Http\Requests\Course\UpdateCourseRequest;
+use App\Http\Resources\CourseOutlineResource;
 use App\Models\Course;
 use App\Http\Requests\Course\IndexCourseRequest;
 use App\Http\Resources\CourseCatalogResource;
@@ -71,12 +72,15 @@ class CourseController extends Controller
      *
      * @tokenOpcional
      */
-    public function show(Course $course): JsonResponse
+        public function show(Request $request, Course $course): JsonResponse
     {
         Gate::authorize('view', $course);
 
+        $course->load('category', 'user.instructorProfile', 'modules.contents');
         return response()->json([
-            'course' => new CourseResource($course->load('category','modules.contents')),
+            'course' => $request->user()?->id === $course->user_id
+                ? new CourseResource($course)
+                : new CourseOutlineResource($course),
         ]);
     }
 
