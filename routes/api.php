@@ -13,7 +13,6 @@ use App\Http\Controllers\Api\V1\Instructor\InstructorController;
 
 
 
-
 Route::post('/auth/register', [AuthController::class, 'register']);
 Route::post('/auth/login', [AuthController::class, 'login']);
 Route::get('/categories', [CategoryController::class, 'index']);
@@ -38,4 +37,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/contents/{content}', [ContentController::class, 'destroy'])->whereNumber('content');
     Route::patch('/courses/{course}/modules/order', [ModuleController::class, 'reorder'])->whereNumber('course');
     Route::patch('/modules/{module}/contents/order', [ContentController::class, 'reorder'])->whereNumber('module');
+    Route::patch('/instructors/me', [InstructorController::class, 'update']);
+    Route::get('/instructors/me', [InstructorController::class, 'show']);
 });
