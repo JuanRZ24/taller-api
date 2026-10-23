@@ -24,6 +24,7 @@ class CourseResource extends JsonResource
                 ? Storage::disk('public')->url($this->cover_path)
                 : null,
             'category' => new CategoryResource($this->whenLoaded('category')),
+            'instructor' => new InstructorResource($this->whenLoaded('user')),
             'created_at' => $this->created_at,
             'modules' => ModuleResource::collection($this->whenLoaded('modules')),
         ];

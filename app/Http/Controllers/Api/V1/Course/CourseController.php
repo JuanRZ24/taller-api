@@ -76,8 +76,7 @@ class CourseController extends Controller
     {
         Gate::authorize('view', $course);
 
-        $course->load('category', 'modules.contents');
-
+        $course->load('category', 'user.instructorProfile', 'modules.contents');
         return response()->json([
             'course' => $request->user()?->id === $course->user_id
                 ? new CourseResource($course)
