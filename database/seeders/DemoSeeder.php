@@ -9,6 +9,8 @@ use App\Models\Category;
 use App\Models\Content;
 use App\Models\Course;
 use App\Models\Module;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 
@@ -26,18 +28,21 @@ class DemoSeeder extends Seeder
             'role' => UserRole::Admin,
         ]);
 
-        $instructores = collect($this->instructores())->map(function (array $datos) {
+                $instructores = collect($this->instructores())->map(function (array $datos, int $i) {
             $user = User::factory()->create([
                 'name' => $datos['name'],
                 'email' => $datos['email'],
                 'role' => UserRole::Instructor,
             ]);
 
-            $user->instructorProfile()->create([
+            $perfil = $user->instructorProfile()->create([
                 'headline' => $datos['headline'],
                 'specialty' => $datos['specialty'],
                 'biography' => $datos['biography'],
             ]);
+
+            $perfil->photo_path = $this->fotoDe($datos['name'], $i);
+            $perfil->save();
 
             return $user;
         });
@@ -211,5 +216,53 @@ class DemoSeeder extends Seeder
                 ]],
             ],
         ];
+    }
+
+
+        /**
+     * Genera una foto de perfil cuadrada con la inicial del instructor.
+     * Se dibuja al vuelo para no meter imagenes binarias al repositorio.
+     * No usa imagettftext porque el contenedor no trae fuentes .ttf.
+     */
+    private function fotoDe(string $nombre, int $indice): string
+    {
+        $paletas = [
+            [45, 90, 160],
+            [160, 80, 40],
+            [40, 120, 110],
+            [120, 60, 140],
+            [160, 50, 70],
+        ];
+
+        [$r, $g, $b] = $paletas[$indice % count($paletas)];
+
+        $lado = 28;
+        $chico = imagecreatetruecolor($lado, $lado);
+        imagefilledrectangle($chico, 0, 0, $lado, $lado, imagecolorallocate($chico, $r, $g, $b));
+
+        $inicial = mb_strtoupper(mb_substr(trim($nombre), 0, 1));
+
+        imagestring(
+            $chico,
+            5,
+            intdiv($lado - imagefontwidth(5), 2),
+            intdiv($lado - imagefontheight(5), 2),
+            $inicial,
+            imagecolorallocate($chico, 255, 255, 255),
+        );
+
+        $grande = imagescale($chico, 400, 400, IMG_NEAREST_NEIGHBOUR);
+
+        ob_start();
+        imagejpeg($grande, null, 90);
+        $binario = ob_get_clean();
+
+        imagedestroy($chico);
+        imagedestroy($grande);
+
+        $ruta = 'instructors/demo-'.Str::slug($nombre).'.jpg';
+        Storage::disk('public')->put($ruta, $binario);
+
+        return $ruta;
     }
 }
