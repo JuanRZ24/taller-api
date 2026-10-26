@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\Content\ContentController;
 use App\Http\Controllers\Api\V1\Course\CourseController;
 use App\Http\Controllers\Api\V1\Instructor\InstructorController;
 use App\Http\Controllers\Api\V1\Module\ModuleController;
+use App\Http\Controllers\Api\V1\Enrollment\EnrollmentController;
 
 
 Route::pattern('content', '[0-9]+');
@@ -59,4 +60,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/modules/{module}/contents/order', [ContentController::class, 'reorder']);
     Route::patch('/contents/{content}', [ContentController::class, 'update']);
     Route::delete('/contents/{content}', [ContentController::class, 'destroy']);
+
+
+
+    // Inscripciones
+    Route::post('/courses/{course}/enrollment', [EnrollmentController::class, 'store']);
+    Route::delete('/courses/{course}/enrollment', [EnrollmentController::class, 'destroy']);
 });
