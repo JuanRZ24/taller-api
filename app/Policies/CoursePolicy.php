@@ -4,11 +4,19 @@ namespace App\Policies;
 
 use App\Enums\CourseStatus;
 use App\Enums\UserRole;
+use App\Services\Enrollment\EnrollmentService;
 use App\Models\Course;
 use App\Models\User;
 
 class CoursePolicy
 {
+    public function __construct(
+        private readonly EnrollmentService $enrollmentService,
+    ) {}
+
+
+
+
     public function create(User $user): bool
     {
         return $user->role === UserRole::Instructor;
@@ -30,11 +38,21 @@ class CoursePolicy
     {
         return $this->update($user, $course);
     }
-    
+
        public function enroll(User $user, Course $course): bool
     {
         return $course->status === CourseStatus::Published
             && ! $this->esDueno($user, $course);
+    }
+
+        public function viewContent(?User $user, Course $course): bool
+    {
+        if ($user === null) {
+            return false;
+        }
+
+        return $this->esDueno($user, $course)
+            || $this->enrollmentService->isEnrolled($user, $course);
     }
 
     private function esDueno(User $user, Course $course): bool
