@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Laravel\Sanctum\HasApiTokens;
 use App\Enums\UserRole;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -46,5 +47,17 @@ class User extends Authenticatable
         public function courses(): HasMany
     {
         return $this->hasMany(Course::class);
+    }
+
+        public function enrollments(): HasMany
+    {
+        return $this->hasMany(Enrollment::class);
+    }
+
+    public function enrolledCourses(): BelongsToMany
+    {
+        return $this->belongsToMany(Course::class, 'enrollments')
+            ->withPivot('enrolled_at')
+            ->withTimestamps();
     }
 }
