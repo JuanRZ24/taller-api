@@ -18,6 +18,8 @@ Route::post('/auth/login', [AuthController::class, 'login']);
 Route::get('/categories', [CategoryController::class, 'index']);
 Route::get('/courses', [CourseController::class, 'catalog']);
 Route::get('/courses/{course}', [CourseController::class, 'show'])->whereNumber('course');
+Route::get('/instructors/{instructor}', [InstructorController::class, 'show'])->whereNumber('instructor');
+
 
 
 Route::middleware('auth:sanctum')->group(function () {
@@ -38,5 +40,5 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/courses/{course}/modules/order', [ModuleController::class, 'reorder'])->whereNumber('course');
     Route::patch('/modules/{module}/contents/order', [ContentController::class, 'reorder'])->whereNumber('module');
     Route::patch('/instructors/me', [InstructorController::class, 'update']);
-    Route::get('/instructors/me', [InstructorController::class, 'show']);
+    Route::get('/instructors/me', [InstructorController::class, 'me']);
 });
