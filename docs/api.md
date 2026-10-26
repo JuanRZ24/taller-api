@@ -43,6 +43,9 @@ volverse `instructor`, el propio usuario se da de alta en
 | `GET` | [`/courses/me`](#get-coursesme) | Token | Cursos del instructor autenticado |
 | `PATCH` | [`/courses/{course}`](#patch-coursescourse) | Token · Dueño | Modifica un curso |
 | `DELETE` | [`/courses/{course}`](#delete-coursescourse) | Token · Dueño | Elimina un curso |
+| `POST` | [`/courses/{course}/enrollment`](#post-coursescourseenrollment) | Token | Inscribe al usuario en un curso publicado |
+| `DELETE` | [`/courses/{course}/enrollment`](#delete-coursescourseenrollment) | Token | Da de baja la inscripción |
+| `GET` | [`/enrollments`](#get-enrollments) | Token | Cursos en los que está inscrito el usuario |
 | `POST` | [`/courses/{course}/modules`](#post-coursescoursemodules) | Token · Dueño | Agrega un módulo al final del curso |
 | `PATCH` | [`/modules/{module}`](#patch-modulesmodule) | Token · Dueño | Renombra un módulo |
 | `DELETE` | [`/modules/{module}`](#delete-modulesmodule) | Token · Dueño | Elimina un módulo y sus contenidos |
@@ -831,9 +834,10 @@ Devuelve un curso con su temario.
 token. En cualquier otro estado, solo su dueño.
 
 **El temario se recorta según quién pregunta.** Todos ven la lista de módulos
-y los títulos de las lecciones; solo el dueño del curso ve el material
-(`body`, `url`, `file_url`). Un visitante puede evaluar si le interesa el
-curso, pero no consumirlo sin inscribirse.
+y los títulos de las lecciones. El material (`body`, `url`, `file_url`) solo lo
+ven **el dueño del curso y quien esté inscrito**. Un visitante puede evaluar si
+le interesa el curso, pero para consumirlo tiene que
+[inscribirse](#post-coursescourseenrollment).
 
 **Respuesta 200 OK — cualquiera**
 
@@ -874,7 +878,7 @@ curso, pero no consumirlo sin inscribirse.
 }
 ```
 
-**Respuesta 200 OK — el dueño del curso**
+**Respuesta 200 OK — el dueño o un inscrito**
 
 Idéntica, salvo que cada contenido trae además su material:
 
@@ -904,9 +908,9 @@ Idéntica, salvo que cada contenido trae además su material:
 | Campo | Quién lo ve |
 |---|---|
 | `id`, `title`, `type`, `position` | Todos |
-| `body` | Solo el dueño. Texto de la lección cuando `type` es `text` |
-| `url` | Solo el dueño. Enlace cuando `type` es `link` o `video` |
-| `file_url` | Solo el dueño. Archivo cuando `type` es `file` |
+| `body` | El dueño y los inscritos. Texto de la lección cuando `type` es `text` |
+| `url` | El dueño y los inscritos. Enlace cuando `type` es `link` o `video` |
+| `file_url` | El dueño y los inscritos. Archivo cuando `type` es `file` |
 
 Las tres llaves **se omiten**, no vienen en `null`. Si el cliente las necesita,
 tiene que comprobar que existan.
@@ -1159,6 +1163,164 @@ curl -X DELETE http://localhost:8000/api/v1/courses/11 \
   -H "Accept: application/json" \
   -H "Authorization: Bearer <token>"
 ```
+---
+
+## Inscripciones
+
+Un estudiante se inscribe a un curso publicado para tener acceso a su
+material. Sin inscripción ve el temario —los títulos de las lecciones y su
+tipo— pero no el contenido.
+
+No hay pagos ni cupo: inscribirse es inmediato.
+
+---
+
+### POST `/courses/{course}/enrollment`
+
+Inscribe al usuario autenticado en un curso. **Requiere token.**
+
+No lleva cuerpo: el curso viene en la ruta y el usuario sale del token.
+
+**Autenticación**
+
+```
+Authorization: Bearer <token>
+```
+
+**Respuesta 201 Created**
+
+```json
+{
+  "message": "Inscripcion realizada."
+}
+```
+
+Desde ese momento, [`GET /courses/{course}`](#get-coursescourse) devuelve el
+material completo de cada lección.
+
+**Respuesta 403 Forbidden**
+
+```json
+{
+  "message": "This action is unauthorized."
+}
+```
+
+Son dos casos: el curso no está publicado, o es tuyo. El dueño no se inscribe
+a su propio curso porque ya lo ve completo.
+
+**Respuesta 409 Conflict**
+
+```json
+{
+  "message": "Ya estas inscrito en este curso."
+}
+```
+
+Es `409` y no `403` a propósito: no es falta de permiso, es que la acción ya
+está hecha.
+
+**Casos de error**
+
+| Situación | Código |
+|---|---|
+| Sin token o token revocado | 401 |
+| El curso no está publicado | 403 |
+| El curso es tuyo | 403 |
+| Ya estabas inscrito | 409 |
+| El curso no existe | 404 |
+
+**Ejemplo con curl**
+
+```bash
+curl -X POST http://localhost:8000/api/v1/courses/1/enrollment \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <token>"
+```
+
+---
+
+### DELETE `/courses/{course}/enrollment`
+
+Da de baja al usuario autenticado del curso. **Requiere token.**
+
+**Respuesta 204 No Content**
+
+Sin cuerpo.
+
+**Responde 204 aunque no estuvieras inscrito.** El resultado final es el mismo
+—no estás inscrito—, así que el cliente no tiene que consultar antes de
+llamar. Es una operación idempotente: repetirla no cambia nada.
+
+Darse de baja no deja rastro: puedes volver a inscribirte al mismo curso.
+
+**Casos de error**
+
+| Situación | Código |
+|---|---|
+| Sin token o token revocado | 401 |
+| El curso no existe | 404 |
+
+**Ejemplo con curl**
+
+```bash
+curl -X DELETE http://localhost:8000/api/v1/courses/1/enrollment \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <token>"
+```
+
+---
+
+### GET `/enrollments`
+
+Lista los cursos en los que está inscrito el usuario autenticado.
+**Requiere token.**
+
+Ordenados del más reciente al más antiguo según cuándo te inscribiste.
+
+**Respuesta 200 OK**
+
+```json
+{
+  "courses": [
+    {
+      "id": 1,
+      "title": "Laravel desde cero",
+      "description": "Un recorrido completo por Laravel para quienes ya programan en otro lenguaje.",
+      "level": "beginner",
+      "cover_url": null,
+      "category": { "id": 1, "name": "Desarrollo web" },
+      "instructor": { "id": 3, "name": "Ana Herrera" }
+    }
+  ],
+  "pagination": {
+    "current_page": 1,
+    "last_page": 1,
+    "per_page": 12,
+    "total": 3
+  }
+}
+```
+
+Cada curso tiene **la misma forma que en** [`GET /courses`](#get-courses), así
+que el cliente puede reutilizar el mismo componente de tarjeta.
+
+Si no hay inscripciones, `courses` viene vacío y `total` en `0`.
+
+**Casos de error**
+
+| Situación | Código |
+|---|---|
+| Sin token o token revocado | 401 |
+
+**Ejemplo con curl**
+
+```bash
+curl http://localhost:8000/api/v1/enrollments \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <token>"
+```
+
 ---
 
 ## Módulos y contenidos

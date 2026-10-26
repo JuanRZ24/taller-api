@@ -44,6 +44,17 @@ Todas las cuentas de demostración usan la contraseña `password`:
 | `ana@demo.test` | Instructora, 5 cursos |
 | `diego@demo.test` | Instructor, 4 cursos |
 | `laura@demo.test` | Instructora, 4 cursos |
+| `sofia@demo.test` | Estudiante, 3 cursos inscritos |
+| `mateo@demo.test` | Estudiante, 2 cursos inscritos |
+| `valeria@demo.test` | Estudiante, 5 cursos inscritos |
+| `emilio@demo.test` | Estudiante, 1 curso inscrito |
+| `renata@demo.test` | Estudiante, sin inscripciones |
+
+El reparto de inscripciones es desigual a propósito: Valeria sirve para probar
+la lista llena y Renata el estado vacío.
+
+Los tres instructores traen foto de perfil generada automáticamente, para que
+los clientes puedan probar el avatar sin subir nada.
 
 Este seeder **no se ejecuta con `db:seed` a secas**: hay que nombrarlo. No
 queremos cuentas con contraseña conocida en el servidor.
