@@ -5,6 +5,7 @@ namespace App\Services\Enrollment;
 use App\Models\Course;
 use App\Models\Enrollment;
 use App\Models\User;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class EnrollmentService
 {
@@ -32,4 +33,14 @@ class EnrollmentService
             ->where('course_id', $course->id)
             ->exists();
     }
+
+    public function paginateByStudent(User $user, int $perPage = 12): LengthAwarePaginator
+    {
+        return $user->enrolledCourses()
+            ->with(['category', 'user'])
+            ->orderByPivot('enrolled_at', 'desc')
+            ->paginate($perPage);
+    }
+
+
 }

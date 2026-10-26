@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Gate;
+use App\Http\Resources\CourseCatalogResource;
 
 class EnrollmentController extends Controller
 {
@@ -52,5 +53,27 @@ class EnrollmentController extends Controller
         $this->enrollmentService->destroy($request->user(), $course);
 
         return response()->noContent();
+    }
+
+
+        /**
+     * Mis cursos inscritos
+     *
+     * Lista los cursos en los que esta inscrito el usuario autenticado,
+     * del mas reciente al mas antiguo.
+     */
+    public function index(Request $request): JsonResponse
+    {
+        $courses = $this->enrollmentService->paginateByStudent($request->user());
+
+        return response()->json([
+            'courses' => CourseCatalogResource::collection($courses->items()),
+            'pagination' => [
+                'current_page' => $courses->currentPage(),
+                'last_page' => $courses->lastPage(),
+                'per_page' => $courses->perPage(),
+                'total' => $courses->total(),
+            ],
+        ]);
     }
 }

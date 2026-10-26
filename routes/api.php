@@ -66,4 +66,5 @@ Route::middleware('auth:sanctum')->group(function () {
     // Inscripciones
     Route::post('/courses/{course}/enrollment', [EnrollmentController::class, 'store']);
     Route::delete('/courses/{course}/enrollment', [EnrollmentController::class, 'destroy']);
+    Route::get('/enrollments', [EnrollmentController::class, 'index']);
 });
