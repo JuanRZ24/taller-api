@@ -30,9 +30,17 @@ class CoursePolicy
     {
         return $this->update($user, $course);
     }
+    
+       public function enroll(User $user, Course $course): bool
+    {
+        return $course->status === CourseStatus::Published
+            && ! $this->esDueno($user, $course);
+    }
 
     private function esDueno(User $user, Course $course): bool
     {
         return $user->id === $course->user_id;
     }
+
+     
 }
