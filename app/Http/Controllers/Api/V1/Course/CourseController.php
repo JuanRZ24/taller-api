@@ -72,13 +72,14 @@ class CourseController extends Controller
      *
      * @tokenOpcional
      */
-        public function show(Request $request, Course $course): JsonResponse
+         public function show(Request $request, Course $course): JsonResponse
     {
         Gate::authorize('view', $course);
 
         $course->load('category', 'user.instructorProfile', 'modules.contents');
+
         return response()->json([
-            'course' => $request->user()?->id === $course->user_id
+            'course' => Gate::allows('viewContent', $course)
                 ? new CourseResource($course)
                 : new CourseOutlineResource($course),
         ]);

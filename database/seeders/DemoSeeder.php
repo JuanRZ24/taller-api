@@ -8,11 +8,13 @@ use App\Enums\UserRole;
 use App\Models\Category;
 use App\Models\Content;
 use App\Models\Course;
+use App\Models\Enrollment;
 use App\Models\Module;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Collection;
 
 class DemoSeeder extends Seeder
 {
@@ -47,7 +49,13 @@ class DemoSeeder extends Seeder
             return $user;
         });
 
-        User::factory(5)->create();
+        $estudiantes = collect($this->estudiantes())->map(
+            fn (array $datos) => User::factory()->create([
+                'name' => $datos['name'],
+                'email' => $datos['email'],
+                'role' => UserRole::Student,
+            ]),
+        );
 
         foreach ($this->cursos() as $i => $datos) {
             $instructor = $instructores[$i % $instructores->count()];
@@ -68,6 +76,8 @@ class DemoSeeder extends Seeder
             $curso->save();
             $this->sembrarEstructura($curso, $this->estructuras()[$datos['title']] ?? []);
         }
+
+        $this->sembrarInscripciones($estudiantes);
     }
 
     /**
@@ -218,6 +228,50 @@ class DemoSeeder extends Seeder
         ];
     }
 
+
+    /**
+     * @return array<int, array<string, string>>
+     */
+    private function estudiantes(): array
+    {
+        return [
+            ['name' => 'Sofia Beltran',   'email' => 'sofia@demo.test'],
+            ['name' => 'Mateo Cardenas',  'email' => 'mateo@demo.test'],
+            ['name' => 'Valeria Nunez',   'email' => 'valeria@demo.test'],
+            ['name' => 'Emilio Sandoval', 'email' => 'emilio@demo.test'],
+            ['name' => 'Renata Ochoa',    'email' => 'renata@demo.test'],
+        ];
+    }
+
+    /**
+     * Inscribe a cada estudiante en un punado de cursos publicados, para
+     * que las pantallas de "mis cursos inscritos" tengan datos de verdad.
+     * El reparto es desigual a proposito: uno se queda sin ninguna.
+     *
+     * @param  Collection<int, User>  $estudiantes
+     */
+    private function sembrarInscripciones(Collection $estudiantes): void
+    {
+        $publicados = Course::where('status', CourseStatus::Published)
+            ->orderBy('id')
+            ->get();
+
+        if ($publicados->isEmpty()) {
+            return;
+        }
+
+        $reparto = [3, 2, 5, 1, 0];
+
+        foreach ($estudiantes->values() as $i => $estudiante) {
+            foreach ($publicados->slice($i, $reparto[$i] ?? 1) as $n => $curso) {
+                $inscripcion = new Enrollment();
+                $inscripcion->user_id = $estudiante->id;
+                $inscripcion->course_id = $curso->id;
+                $inscripcion->enrolled_at = now()->subDays(($i * 3) + $n);
+                $inscripcion->save();
+            }
+        }
+    }
 
         /**
      * Genera una foto de perfil cuadrada con la inicial del instructor.
