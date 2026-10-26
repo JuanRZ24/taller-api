@@ -32,6 +32,9 @@ volverse `instructor`, el propio usuario se da de alta en
 | `POST` | [`/auth/logout`](#post-authlogout) | Token | Revoca el token utilizado |
 | `GET` | [`/auth/me`](#get-authme) | Token | Devuelve el usuario autenticado |
 | `POST` | [`/instructors`](#post-instructors) | Token · Estudiante | Convierte al usuario autenticado en instructor |
+| `GET` | [`/instructors/me`](#get-instructorsme) | Token | Devuelve el perfil del instructor autenticado |
+| `PATCH` | [`/instructors/me`](#patch-instructorsme) | Token · Instructor | Edita el perfil del instructor autenticado |
+| `GET` | [`/instructors/{instructor}`](#get-instructorsinstructor) | Público | Perfil público de un instructor |
 | `POST` | [`/instructors/me/photo`](#post-instructorsmephoto) | Token · Instructor | Sube o reemplaza la foto de perfil del instructor |
 | `GET` | [`/categories`](#get-categories) | Público | Lista el catálogo de categorías |
 | `GET` | [`/courses`](#get-courses) | Público | Catálogo de cursos publicados, con filtros |
@@ -476,6 +479,219 @@ curl -X POST http://localhost:8000/api/v1/instructors/me/photo \
   -H "Authorization: Bearer <token>" \
   -F "photo=@/ruta/a/foto.jpg"
 ```
+### GET `/instructors/me`
+
+Devuelve el perfil público del instructor autenticado.
+**Requiere token.**
+
+Sirve para llenar el formulario de edición con los datos actuales: sin este
+endpoint el instructor tendría que volver a escribir todo desde cero cada vez
+que quiera corregir un campo.
+
+**Autenticación**
+
+```
+Authorization: Bearer <token>
+```
+
+No recibe cuerpo ni parámetros. El perfil que devuelve siempre es el del dueño
+del token; no hay forma de pedir el de otra persona.
+
+**Respuesta 200 OK**
+
+```json
+{
+  "profile": {
+    "headline": "Ingeniera de software | 8 años enseñando backend",
+    "specialty": "Desarrollo web",
+    "biography": "Trabajo con PHP y Laravel desde 2017. He dado clases en línea a más de tres mil alumnos y me gusta explicar el porqué de las cosas, no solo el cómo.",
+    "photo_url": null
+  }
+}
+```
+
+`photo_url` es `null` mientras el instructor no haya subido ninguna foto.
+
+**Respuesta 404 Not Found**
+
+```json
+{
+  "message": "Todavia no tienes un perfil de instructor."
+}
+```
+
+Un estudiante autenticado recibe este 404: tiene cuenta válida, pero todavía no
+se ha dado de alta como instructor con [`POST /instructors`](#post-instructors).
+
+**Casos de error**
+
+| Situación | Código |
+|---|---|
+| Sin token o token revocado | 401 |
+| El usuario no tiene perfil de instructor | 404 |
+
+**Ejemplo con curl**
+
+```bash
+curl http://localhost:8000/api/v1/instructors/me \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <token>"
+```
+
+---
+
+### PATCH `/instructors/me`
+
+Edita el perfil público del instructor autenticado.
+**Requiere token.** Solo un usuario con rol `instructor` puede usarlo.
+
+**Actualización parcial:** solo se modifican los campos que mandes. Los que
+omitas se quedan como estaban. No hace falta reenviar la biografía completa
+para corregir el titular.
+
+**La foto no se cambia aquí.** Tiene su propio endpoint,
+[`POST /instructors/me/photo`](#post-instructorsmephoto), porque viaja como
+`multipart/form-data` y no como JSON.
+
+**Autenticación**
+
+```
+Authorization: Bearer <token>
+```
+
+**Cuerpo de la petición**
+
+| Campo | Tipo | Reglas |
+|---|---|---|
+| `headline` | string | Opcional. Si se envía, no puede ir vacío. Máximo 150 caracteres. |
+| `specialty` | string | Opcional. Si se envía, no puede ir vacío. Máximo 100 caracteres. |
+| `biography` | string | Opcional. Si se envía, no puede ir vacío. Entre 50 y 2000 caracteres. |
+
+Las reglas son las mismas que en [`POST /instructors`](#post-instructors), con
+una diferencia: ahí los tres campos son obligatorios, y aquí los tres son
+opcionales. Lo que no cambia son los límites, para que no se pueda crear un
+perfil con unas reglas y editarlo con otras.
+
+Los campos que no están en esta tabla se ignoran en silencio. Mandar `user_id`,
+`photo_path` o `id` no tiene ningún efecto.
+
+**Respuesta 200 OK**
+
+```json
+{
+  "profile": {
+    "headline": "Ingeniera de software | Backend y APIs",
+    "specialty": "Desarrollo web",
+    "biography": "Trabajo con PHP y Laravel desde 2017. He dado clases en línea a más de tres mil alumnos y me gusta explicar el porqué de las cosas, no solo el cómo.",
+    "photo_url": null
+  }
+}
+```
+
+Devuelve el perfil completo ya actualizado, no solo los campos que mandaste.
+
+**Respuesta 403 Forbidden**
+
+```json
+{
+  "message": "Solo un instructor puede editar su perfil."
+}
+```
+
+**Respuesta 422 Unprocessable Content**
+
+```json
+{
+  "message": "The biography field must be at least 50 characters.",
+  "errors": {
+    "biography": ["The biography field must be at least 50 characters."]
+  }
+}
+```
+
+**Casos de error**
+
+| Situación | Código | Campo en `errors` |
+|---|---|---|
+| Sin token o token revocado | 401 | — |
+| El usuario no es instructor | 403 | — |
+| `headline` enviado pero vacío | 422 | `headline` |
+| `headline` de más de 150 caracteres | 422 | `headline` |
+| `specialty` enviada pero vacía | 422 | `specialty` |
+| `specialty` de más de 100 caracteres | 422 | `specialty` |
+| `biography` enviada pero vacía | 422 | `biography` |
+| `biography` de menos de 50 caracteres | 422 | `biography` |
+| `biography` de más de 2000 caracteres | 422 | `biography` |
+
+**Ejemplo con curl**
+
+```bash
+curl -X PATCH http://localhost:8000/api/v1/instructors/me \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{"headline":"Ingeniera de software | Backend y APIs"}'
+```
+
+### GET `/instructors/{instructor}`
+
+Devuelve el perfil público de un instructor.
+**Público:** no requiere token.
+
+Sirve para la pantalla a la que se llega al tocar el nombre del instructor en
+el detalle de un curso. El `{instructor}` es el `id` del **usuario**, el mismo
+que viene en `course.instructor.id`.
+
+**Respuesta 200 OK**
+
+```json
+{
+  "instructor": {
+    "id": 4,
+    "name": "Diego Morales",
+    "profile": {
+      "headline": "Desarrollador Android | Kotlin y Java",
+      "specialty": "Desarrollo móvil",
+      "biography": "Llevo seis años construyendo aplicaciones Android para empresas de logística.",
+      "photo_url": "http://localhost:8000/storage/instructors/demo-diego-morales.jpg"
+    }
+  }
+}
+```
+
+Es la misma forma que el bloque `instructor` de
+[`GET /courses/{course}`](#get-coursescourse), así que el cliente puede
+reutilizar el mismo código para pintarla.
+
+`profile` viene en `null` si el instructor no tiene perfil, y `photo_url` en
+`null` si no ha subido foto.
+
+**Respuesta 404 Not Found**
+
+```json
+{
+  "message": "Ese instructor no existe."
+}
+```
+
+Responde 404 tanto si el id no existe como si corresponde a un usuario que no
+es instructor. Es a propósito: no distinguirlos evita revelar qué ids de
+usuario están ocupados.
+
+**Casos de error**
+
+| Situación | Código |
+|---|---|
+| El id no existe | 404 |
+| El id es de un estudiante o de un administrador | 404 |
+| El `{instructor}` no es un número | 404 |
+
+**Ejemplo con curl**
+
+```bash
+curl http://localhost:8000/api/v1/instructors/4 \
+  -H "Accept: application/json"
+```
 
 ---
 
@@ -609,28 +825,91 @@ curl -X GET "http://localhost:8000/api/v1/courses?level=beginner&category_id=2" 
 
 ### GET `/courses/{course}`
 
-Devuelve un curso con todos sus datos.
+Devuelve un curso con su temario.
 
 **Acceso mixto.** Si el curso está `published`, cualquiera lo puede ver, sin
 token. En cualquier otro estado, solo su dueño.
 
-**Respuesta 200 OK**
+**El temario se recorta según quién pregunta.** Todos ven la lista de módulos
+y los títulos de las lecciones; solo el dueño del curso ve el material
+(`body`, `url`, `file_url`). Un visitante puede evaluar si le interesa el
+curso, pero no consumirlo sin inscribirse.
+
+**Respuesta 200 OK — cualquiera**
 
 ```json
 {
   "course": {
-    "id": 5,
-    "title": "Laravel desde cero",
-    "description": "Un curso completo de Laravel para quienes vienen de otros lenguajes.",
-    "level": "beginner",
+    "id": 3,
+    "title": "APIs REST con PHP moderno",
+    "description": "Diseño de APIs que no se rompen: versionado, códigos de estado, formatos de error uniformes y documentación generada desde el código.",
+    "level": "intermediate",
     "status": "published",
     "rejection_reason": null,
     "cover_url": null,
-    "category": { "id": 2, "name": "Desarrollo móvil" },
-    "created_at": "2026-10-10T03:14:22.000000Z"
+    "category": { "id": 1, "name": "Desarrollo web" },
+    "instructor": {
+      "id": 5,
+      "name": "Diego Morales",
+      "profile": {
+        "headline": "Desarrollador Android | Kotlin y Java",
+        "specialty": "Desarrollo móvil",
+        "biography": "Llevo seis años construyendo aplicaciones Android para empresas de logística.",
+        "photo_url": null
+      }
+    },
+    "created_at": "2026-10-14T20:02:14.000000Z",
+    "modules": [
+      {
+        "id": 5,
+        "title": "Diseño de la API",
+        "position": 1,
+        "contents": [
+          { "id": 11, "title": "Sustantivos, no verbos", "type": "text", "position": 1 },
+          { "id": 12, "title": "Códigos de estado que importan", "type": "text", "position": 2 }
+        ]
+      }
+    ]
   }
 }
 ```
+
+**Respuesta 200 OK — el dueño del curso**
+
+Idéntica, salvo que cada contenido trae además su material:
+
+```json
+{
+  "id": 11,
+  "title": "Sustantivos, no verbos",
+  "type": "text",
+  "position": 1,
+  "body": "La ruta dice qué cosa y el método HTTP dice qué le haces.",
+  "url": null,
+  "file_url": null
+}
+```
+
+**Campos del curso**
+
+| Campo | Notas |
+|---|---|
+| `instructor.id` | Id del usuario, para enlazar a su perfil |
+| `instructor.profile` | `null` si el instructor no tiene perfil |
+| `modules` | Ordenados por `position`. Arreglo vacío si no hay |
+| `modules[].contents` | Ordenados por `position` |
+
+**Campos del contenido**
+
+| Campo | Quién lo ve |
+|---|---|
+| `id`, `title`, `type`, `position` | Todos |
+| `body` | Solo el dueño. Texto de la lección cuando `type` es `text` |
+| `url` | Solo el dueño. Enlace cuando `type` es `link` o `video` |
+| `file_url` | Solo el dueño. Archivo cuando `type` es `file` |
+
+Las tres llaves **se omiten**, no vienen en `null`. Si el cliente las necesita,
+tiene que comprobar que existan.
 
 **Casos de error**
 
@@ -643,10 +922,17 @@ token. En cualquier otro estado, solo su dueño.
 **Ejemplo con curl**
 
 ```bash
-curl -X GET http://localhost:8000/api/v1/courses/5 \
+curl http://localhost:8000/api/v1/courses/3 \
   -H "Accept: application/json"
 ```
 
+Con token, para ver el material si eres el dueño:
+
+```bash
+curl http://localhost:8000/api/v1/courses/3 \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <token>"
+```
 ---
 
 ### POST `/courses`

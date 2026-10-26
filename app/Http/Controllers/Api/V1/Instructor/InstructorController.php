@@ -6,6 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Instructor\StoreInstructorRequest;
 use App\Http\Resources\InstructorProfileResource;
 use App\Http\Resources\UserResource;
+use App\Http\Requests\Instructor\UpdateInstructorRequest;
+use Illuminate\Http\Request;
+use App\Enums\UserRole;
+use App\Http\Resources\InstructorResource;
+use App\Models\User;
 use App\Services\Instructor\InstructorService;
 use Illuminate\Http\JsonResponse;
 use App\Http\Requests\Instructor\UpdateInstructorPhotoRequest;
@@ -50,6 +55,61 @@ class InstructorController extends Controller
 
         return response()->json([
             'profile' => new InstructorProfileResource($profile),
+        ]);
+    }
+
+
+
+    /**
+     * Actualizar perfil
+     *
+     * Actualiza el perfil del instructor autenticado. Solo se pueden actualizar
+     * los campos `headline`, `specialty` y `biography`.
+     */
+    public function update(UpdateInstructorRequest $request): JsonResponse
+    {
+        $profile = $this -> instructorService->update(
+            $request->user(),
+            $request->validated(),
+        );
+
+        return response()->json([
+            'profile' => new InstructorProfileResource($profile),
+        ]);
+
+        }
+    /**
+     * Ver mi perfil de instructor
+     *
+     * Devuelve el perfil público del instructor autenticado. Sirve para
+     * llenar el formulario de edición con los datos actuales.
+     */
+        public function me(Request $request): JsonResponse
+    {
+        $profile = $request->user()->instructorProfile;
+
+        abort_if($profile === null, 404, 'Todavia no tienes un perfil de instructor.');
+
+        return response()->json([
+            'profile' => new InstructorProfileResource($profile),
+        ]);
+    }
+
+        /**
+     * Ver el perfil publico de un instructor
+     *
+     * Devuelve el perfil de quien imparte un curso, junto con sus cursos
+     * publicados. Publico: no requiere token. Un id que no corresponda a
+     * un instructor responde 404.
+     */
+    public function show(User $instructor): JsonResponse
+    {
+        abort_if($instructor->role !== UserRole::Instructor, 404, 'Ese instructor no existe.');
+
+        $instructor->load('instructorProfile');
+
+        return response()->json([
+            'instructor' => new InstructorResource($instructor),
         ]);
     }
 }
