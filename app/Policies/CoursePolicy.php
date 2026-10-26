@@ -4,9 +4,9 @@ namespace App\Policies;
 
 use App\Enums\CourseStatus;
 use App\Enums\UserRole;
-use App\Services\Enrollment\EnrollmentService;
 use App\Models\Course;
 use App\Models\User;
+use App\Services\Enrollment\EnrollmentService;
 
 class CoursePolicy
 {
