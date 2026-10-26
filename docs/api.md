@@ -34,6 +34,7 @@ volverse `instructor`, el propio usuario se da de alta en
 | `POST` | [`/instructors`](#post-instructors) | Token · Estudiante | Convierte al usuario autenticado en instructor |
 | `GET` | [`/instructors/me`](#get-instructorsme) | Token | Devuelve el perfil del instructor autenticado |
 | `PATCH` | [`/instructors/me`](#patch-instructorsme) | Token · Instructor | Edita el perfil del instructor autenticado |
+| `GET` | [`/instructors/{instructor}`](#get-instructorsinstructor) | Público | Perfil público de un instructor |
 | `POST` | [`/instructors/me/photo`](#post-instructorsmephoto) | Token · Instructor | Sube o reemplaza la foto de perfil del instructor |
 | `GET` | [`/categories`](#get-categories) | Público | Lista el catálogo de categorías |
 | `GET` | [`/courses`](#get-courses) | Público | Catálogo de cursos publicados, con filtros |
@@ -632,7 +633,65 @@ curl -X PATCH http://localhost:8000/api/v1/instructors/me \
   -d '{"headline":"Ingeniera de software | Backend y APIs"}'
 ```
 
+### GET `/instructors/{instructor}`
 
+Devuelve el perfil público de un instructor.
+**Público:** no requiere token.
+
+Sirve para la pantalla a la que se llega al tocar el nombre del instructor en
+el detalle de un curso. El `{instructor}` es el `id` del **usuario**, el mismo
+que viene en `course.instructor.id`.
+
+**Respuesta 200 OK**
+
+```json
+{
+  "instructor": {
+    "id": 4,
+    "name": "Diego Morales",
+    "profile": {
+      "headline": "Desarrollador Android | Kotlin y Java",
+      "specialty": "Desarrollo móvil",
+      "biography": "Llevo seis años construyendo aplicaciones Android para empresas de logística.",
+      "photo_url": "http://localhost:8000/storage/instructors/demo-diego-morales.jpg"
+    }
+  }
+}
+```
+
+Es la misma forma que el bloque `instructor` de
+[`GET /courses/{course}`](#get-coursescourse), así que el cliente puede
+reutilizar el mismo código para pintarla.
+
+`profile` viene en `null` si el instructor no tiene perfil, y `photo_url` en
+`null` si no ha subido foto.
+
+**Respuesta 404 Not Found**
+
+```json
+{
+  "message": "Ese instructor no existe."
+}
+```
+
+Responde 404 tanto si el id no existe como si corresponde a un usuario que no
+es instructor. Es a propósito: no distinguirlos evita revelar qué ids de
+usuario están ocupados.
+
+**Casos de error**
+
+| Situación | Código |
+|---|---|
+| El id no existe | 404 |
+| El id es de un estudiante o de un administrador | 404 |
+| El `{instructor}` no es un número | 404 |
+
+**Ejemplo con curl**
+
+```bash
+curl http://localhost:8000/api/v1/instructors/4 \
+  -H "Accept: application/json"
+```
 
 ---
 

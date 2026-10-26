@@ -8,6 +8,9 @@ use App\Http\Resources\InstructorProfileResource;
 use App\Http\Resources\UserResource;
 use App\Http\Requests\Instructor\UpdateInstructorRequest;
 use Illuminate\Http\Request;
+use App\Enums\UserRole;
+use App\Http\Resources\InstructorResource;
+use App\Models\User;
 use App\Services\Instructor\InstructorService;
 use Illuminate\Http\JsonResponse;
 use App\Http\Requests\Instructor\UpdateInstructorPhotoRequest;
@@ -81,7 +84,7 @@ class InstructorController extends Controller
      * Devuelve el perfil público del instructor autenticado. Sirve para
      * llenar el formulario de edición con los datos actuales.
      */
-        public function show(Request $request): JsonResponse
+        public function me(Request $request): JsonResponse
     {
         $profile = $request->user()->instructorProfile;
 
@@ -89,6 +92,24 @@ class InstructorController extends Controller
 
         return response()->json([
             'profile' => new InstructorProfileResource($profile),
+        ]);
+    }
+
+        /**
+     * Ver el perfil publico de un instructor
+     *
+     * Devuelve el perfil de quien imparte un curso, junto con sus cursos
+     * publicados. Publico: no requiere token. Un id que no corresponda a
+     * un instructor responde 404.
+     */
+    public function show(User $instructor): JsonResponse
+    {
+        abort_if($instructor->role !== UserRole::Instructor, 404, 'Ese instructor no existe.');
+
+        $instructor->load('instructorProfile');
+
+        return response()->json([
+            'instructor' => new InstructorResource($instructor),
         ]);
     }
 }
