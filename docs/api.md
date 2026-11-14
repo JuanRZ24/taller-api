@@ -43,6 +43,7 @@ volverse `instructor`, el propio usuario se da de alta en
 | `GET` | [`/courses/me`](#get-coursesme) | Token | Cursos del instructor autenticado |
 | `PATCH` | [`/courses/{course}`](#patch-coursescourse) | Token · Dueño | Modifica un curso |
 | `DELETE` | [`/courses/{course}`](#delete-coursescourse) | Token · Dueño | Elimina un curso |
+| `POST` | [`/courses/{course}/submission`](#post-coursescoursesubmission) | Token · Dueño | Envía el curso a revisión |
 | `POST` | [`/courses/{course}/enrollment`](#post-coursescourseenrollment) | Token | Inscribe al usuario en un curso publicado |
 | `DELETE` | [`/courses/{course}/enrollment`](#delete-coursescourseenrollment) | Token | Da de baja la inscripción |
 | `GET` | [`/enrollments`](#get-enrollments) | Token | Cursos en los que está inscrito el usuario |
@@ -762,7 +763,9 @@ Un curso pasa por cuatro estados:
 | `rejected` | Rechazado por un administrador. Vuelve a ser editable. |
 
 **El estado nunca se envía en el formulario.** Todo curso nace en `draft` y
-solo cambia mediante endpoints específicos.
+solo cambia mediante endpoints específicos. El instructor lo mueve a `pending`
+con [`POST /courses/{course}/submission`](#post-coursescoursesubmission); de
+ahí en adelante decide un administrador.
 
 Un curso solo se puede **modificar o eliminar** cuando está en `draft` o en
 `rejected`. En `pending` y `published` está congelado, y eso incluye sus
@@ -1163,6 +1166,92 @@ curl -X DELETE http://localhost:8000/api/v1/courses/11 \
   -H "Accept: application/json" \
   -H "Authorization: Bearer <token>"
 ```
+---
+
+### POST `/courses/{course}/submission`
+
+Envía el curso a revisión. **Requiere token.** Solo su dueño.
+
+No lleva cuerpo: el curso viene en la ruta y el usuario sale del token.
+
+Solo se puede enviar un curso en `draft` o en `rejected`. Al enviarlo pasa a
+`pending`, **deja de ser editable** —y sus módulos y contenidos también— y
+queda esperando a que un administrador lo apruebe o lo rechace.
+
+**Al reenviar un curso rechazado se limpia `rejection_reason`.** El motivo
+anterior ya no aplica: el instructor acaba de corregirlo.
+
+**Autenticación**
+
+```
+Authorization: Bearer <token>
+```
+
+**Respuesta 200 OK**
+
+```json
+{
+  "course": {
+    "id": 13,
+    "title": "Seguridad en aplicaciones web",
+    "description": "Las vulnerabilidades más comunes y cómo se previenen desde el código.",
+    "level": "advanced",
+    "status": "pending",
+    "rejection_reason": null,
+    "cover_url": null,
+    "category": { "id": 6, "name": "Redes y seguridad" },
+    "created_at": "2026-10-26T19:50:29.000000Z"
+  }
+}
+```
+
+Devuelve el curso con el estado ya actualizado, para que el cliente repinte
+sin volver a consultarlo.
+
+Es `200` y no `201` porque no se crea nada: cambia el estado de algo que ya
+existía.
+
+**Respuesta 403 Forbidden**
+
+```json
+{
+  "message": "This action is unauthorized."
+}
+```
+
+Dos casos: el curso no es tuyo, o no está en `draft` ni en `rejected`. Un
+curso ya enviado no se puede reenviar, y uno publicado tampoco.
+
+**Respuesta 422 Unprocessable Content**
+
+```json
+{
+  "message": "Un curso sin modulos no se puede enviar a revision."
+}
+```
+
+No tiene sentido mandar a revisar un curso vacío. Agrega al menos un módulo
+con [`POST /courses/{course}/modules`](#post-coursescoursemodules) antes de
+enviarlo.
+
+**Casos de error**
+
+| Situación | Código |
+|---|---|
+| Sin token o token revocado | 401 |
+| No eres el dueño del curso | 403 |
+| El curso está en `pending` o `published` | 403 |
+| El curso no tiene módulos | 422 |
+| El curso no existe | 404 |
+
+**Ejemplo con curl**
+
+```bash
+curl -X POST http://localhost:8000/api/v1/courses/13/submission \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <token>"
+```
+
 ---
 
 ## Inscripciones
