@@ -141,4 +141,28 @@ class CourseController extends Controller
             ],
         ]);
     }
+
+        /**
+     * Enviar un curso a revision
+     *
+     * Mueve el curso a "en revision" para que un administrador lo apruebe.
+     * Solo el dueno, y solo si esta en borrador o rechazado. Al reenviar un
+     * curso rechazado se limpia el motivo anterior.
+     */
+    public function submit(Course $course): JsonResponse
+    {
+        Gate::authorize('submit', $course);
+
+        abort_if(
+            $course->modules()->doesntExist(),
+            422,
+            'Un curso sin modulos no se puede enviar a revision.',
+        );
+
+        $course = $this->courseService->submit($course);
+
+        return response()->json([
+            'course' => new CourseResource($course->load('category')),
+        ]);
+    }
 }

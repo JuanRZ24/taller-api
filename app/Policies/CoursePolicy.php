@@ -55,6 +55,12 @@ class CoursePolicy
             || $this->enrollmentService->isEnrolled($user, $course);
     }
 
+    public function submit(User $user, Course $course): bool
+    {
+        return $this->esDueno($user, $course)
+            && in_array($course->status, [CourseStatus::Draft, CourseStatus::Rejected], true);
+    }
+
     private function esDueno(User $user, Course $course): bool
     {
         return $user->id === $course->user_id;

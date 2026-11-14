@@ -63,4 +63,13 @@ class CourseService
             Storage::disk('public')->delete($coverPath);
         }
     }
+
+    public function submit(Course $course): Course
+    {
+        $course->status = CourseStatus::Pending;
+        $course->rejection_reason = null;
+        $course->save();
+
+        return $course;
+    }
 }
