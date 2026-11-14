@@ -9,6 +9,7 @@ use App\Services\Course\CourseService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use App\Http\Requests\Course\UpdateCourseRequest;
+use App\Http\Requests\Course\RejectCourseRequest;
 use App\Http\Resources\CourseOutlineResource;
 use App\Models\Course;
 use App\Http\Requests\Course\IndexCourseRequest;
@@ -160,6 +161,42 @@ class CourseController extends Controller
         );
 
         $course = $this->courseService->submit($course);
+
+        return response()->json([
+            'course' => new CourseResource($course->load('category')),
+        ]);
+    }
+
+        /**
+     * Aprobar un curso
+     *
+     * Publica un curso que estaba en revision. Solo un administrador, y solo
+     * sobre cursos en estado pending.
+     */
+    public function approve(Course $course): JsonResponse
+    {
+        Gate::authorize('moderate', $course);
+
+        $course = $this->courseService->approve($course);
+
+        return response()->json([
+            'course' => new CourseResource($course->load('category')),
+        ]);
+    }
+
+    /**
+     * Rechazar un curso
+     *
+     * Devuelve el curso al instructor con un motivo para que lo corrija y
+     * vuelva a enviarlo. Solo un administrador, y solo sobre cursos en
+     * estado pending.
+     */
+    public function reject(RejectCourseRequest $request, Course $course): JsonResponse
+    {
+        $course = $this->courseService->reject(
+            $course,
+            $request->validated()['rejection_reason'],
+        );
 
         return response()->json([
             'course' => new CourseResource($course->load('category')),

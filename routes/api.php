@@ -49,6 +49,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/courses/{course}', [CourseController::class, 'update']);
     Route::delete('/courses/{course}', [CourseController::class, 'destroy']);
     Route::post('/courses/{course}/submission', [CourseController::class, 'submit']);
+    Route::post('/courses/{course}/approval', [CourseController::class, 'approve']);
+    Route::post('/courses/{course}/rejection', [CourseController::class, 'reject']);
 
     // Modulos
     Route::post('/courses/{course}/modules', [ModuleController::class, 'store']);
