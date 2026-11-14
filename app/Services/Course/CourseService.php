@@ -90,4 +90,13 @@ class CourseService
 
         return $course;
     }
+
+        public function paginatePending(int $perPage = 12): LengthAwarePaginator
+    {
+        return Course::query()
+            ->where('status', CourseStatus::Pending)
+            ->with(['category', 'user'])
+            ->oldest()
+            ->paginate($perPage);
+    }
 }

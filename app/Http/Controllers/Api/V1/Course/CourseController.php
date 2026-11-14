@@ -202,4 +202,27 @@ class CourseController extends Controller
             'course' => new CourseResource($course->load('category')),
         ]);
     }
+
+        /**
+     * Cursos en revision
+     *
+     * Cola de moderacion: los cursos que esperan aprobacion, del mas antiguo
+     * al mas reciente. Solo un administrador.
+     */
+    public function pending(): JsonResponse
+    {
+        Gate::authorize('viewPending', Course::class);
+
+        $courses = $this->courseService->paginatePending();
+
+        return response()->json([
+            'courses' => CourseCatalogResource::collection($courses->items()),
+            'pagination' => [
+                'current_page' => $courses->currentPage(),
+                'last_page' => $courses->lastPage(),
+                'per_page' => $courses->perPage(),
+                'total' => $courses->total(),
+            ],
+        ]);
+    }
 }

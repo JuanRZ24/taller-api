@@ -67,10 +67,17 @@ class CoursePolicy
             && $course->status === CourseStatus::Pending;
     }
 
+        public function viewPending(User $user): bool
+    {
+        return $user->role === UserRole::Admin;
+    }
+
     private function esDueno(User $user, Course $course): bool
     {
         return $user->id === $course->user_id;
     }
+
+    
 
     
 
