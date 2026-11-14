@@ -61,10 +61,18 @@ class CoursePolicy
             && in_array($course->status, [CourseStatus::Draft, CourseStatus::Rejected], true);
     }
 
+    public function moderate(User $user, Course $course): bool
+    {
+        return $user->role === UserRole::Admin
+            && $course->status === CourseStatus::Pending;
+    }
+
     private function esDueno(User $user, Course $course): bool
     {
         return $user->id === $course->user_id;
     }
+
+    
 
      
 }

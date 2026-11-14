@@ -72,4 +72,22 @@ class CourseService
 
         return $course;
     }
+
+        public function approve(Course $course): Course
+    {
+        $course->status = CourseStatus::Published;
+        $course->rejection_reason = null;
+        $course->save();
+
+        return $course;
+    }
+
+    public function reject(Course $course, string $reason): Course
+    {
+        $course->status = CourseStatus::Rejected;
+        $course->rejection_reason = $reason;
+        $course->save();
+
+        return $course;
+    }
 }
