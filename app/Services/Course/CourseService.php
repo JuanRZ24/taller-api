@@ -68,6 +68,7 @@ class CourseService
     {
         $course->status = CourseStatus::Pending;
         $course->rejection_reason = null;
+        $course->submitted_at = now();
         $course->save();
 
         return $course;
@@ -96,7 +97,7 @@ class CourseService
         return Course::query()
             ->where('status', CourseStatus::Pending)
             ->with(['category', 'user'])
-            ->oldest()
+            ->orderBy('submitted_at')
             ->paginate($perPage);
     }
 }

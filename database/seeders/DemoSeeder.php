@@ -73,6 +73,18 @@ class DemoSeeder extends Seeder
                 $curso->rejection_reason = 'La descripción no detalla lo suficiente el contenido del curso.';
             }
 
+                        $curso->status = $datos['status'];
+
+            if ($datos['status'] === CourseStatus::Rejected) {
+                $curso->rejection_reason = 'La descripción no detalla lo suficiente el contenido del curso.';
+            }
+
+            if (in_array($datos['status'], [CourseStatus::Pending, CourseStatus::Rejected], true)) {
+                $curso->submitted_at = now()->subDays(3);
+            }
+
+            $curso->save();
+
             $curso->save();
             $this->sembrarEstructura($curso, $this->estructuras()[$datos['title']] ?? []);
         }
