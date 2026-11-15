@@ -778,6 +778,38 @@ módulos y contenidos.
 El nivel acepta tres valores: `beginner`, `intermediate` y `advanced`. El
 desplegable muestra el texto en español pero **envía el valor en inglés**.
 
+### El motivo del rechazo
+
+Cuando un administrador rechaza un curso, guarda un texto explicando por qué.
+Ese texto viaja en el campo `rejection_reason` y es lo que el instructor
+necesita para corregir y volver a enviarlo.
+
+**Cuándo trae texto y cuándo no:**
+
+| Estado del curso | `rejection_reason` |
+|---|---|
+| `rejected` | el motivo que escribió el administrador |
+| `draft` | `null` |
+| `pending` | `null` |
+| `published` | `null` |
+
+**Se limpia al reenviar.** En cuanto el instructor llama a
+[`POST /courses/{course}/submission`](#post-coursescoursesubmission), el campo
+vuelve a `null`: el motivo anterior ya no aplica porque acaba de corregirlo.
+El cliente no tiene que borrarlo a mano.
+
+**Quién lo puede ver.** Solo el dueño del curso. Un curso rechazado no está
+publicado, así que [`GET /courses/{course}`](#get-coursescourse) responde
+`403` a cualquier otro —otro instructor, un estudiante o un visitante— y el
+motivo nunca sale del servidor. El administrador que lo escribió lo ve desde
+la cola de [`GET /courses/pending`](#get-coursespending) mientras el curso
+sigue en revisión.
+
+**Dónde viene.** En [`GET /courses/me`](#get-coursesme) y en
+[`GET /courses/{course}`](#get-coursescourse). **No** está en
+[`GET /courses`](#get-courses), porque el catálogo solo lista cursos
+publicados y ésos nunca tienen motivo.
+
 ---
 
 ### GET `/courses`
