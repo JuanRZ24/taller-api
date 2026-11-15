@@ -44,6 +44,9 @@ volverse `instructor`, el propio usuario se da de alta en
 | `PATCH` | [`/courses/{course}`](#patch-coursescourse) | Token · Dueño | Modifica un curso |
 | `DELETE` | [`/courses/{course}`](#delete-coursescourse) | Token · Dueño | Elimina un curso |
 | `POST` | [`/courses/{course}/submission`](#post-coursescoursesubmission) | Token · Dueño | Envía el curso a revisión |
+| `GET` | [`/courses/pending`](#get-coursespending) | Token · Admin | Cola de cursos esperando moderación |
+| `POST` | [`/courses/{course}/approval`](#post-coursescourseapproval) | Token · Admin | Aprueba un curso y lo publica |
+| `POST` | [`/courses/{course}/rejection`](#post-coursescourserejection) | Token · Admin | Rechaza un curso con un motivo |
 | `POST` | [`/courses/{course}/enrollment`](#post-coursescourseenrollment) | Token | Inscribe al usuario en un curso publicado |
 | `DELETE` | [`/courses/{course}/enrollment`](#delete-coursescourseenrollment) | Token | Da de baja la inscripción |
 | `GET` | [`/enrollments`](#get-enrollments) | Token | Cursos en los que está inscrito el usuario |
@@ -765,7 +768,8 @@ Un curso pasa por cuatro estados:
 **El estado nunca se envía en el formulario.** Todo curso nace en `draft` y
 solo cambia mediante endpoints específicos. El instructor lo mueve a `pending`
 con [`POST /courses/{course}/submission`](#post-coursescoursesubmission); de
-ahí en adelante decide un administrador.
+ahí en adelante decide un administrador, con los endpoints de
+[Moderación](#moderación).
 
 Un curso solo se puede **modificar o eliminar** cuando está en `draft` o en
 `rejected`. En `pending` y `published` está congelado, y eso incluye sus
@@ -1250,6 +1254,206 @@ enviarlo.
 curl -X POST http://localhost:8000/api/v1/courses/13/submission \
   -H "Accept: application/json" \
   -H "Authorization: Bearer <token>"
+```
+
+---
+
+## Moderación
+
+Un curso enviado a revisión queda esperando a que un **administrador** lo
+apruebe o lo rechace. Los tres endpoints de esta sección son solo para el rol
+`admin`: un instructor, aunque sea el dueño del curso, recibe `403`.
+
+El ciclo completo:
+
+```
+draft ──submission──> pending ──approval──> published
+  ↑                      │
+  └──────rejection───────┘   (con motivo, y vuelve a ser editable)
+```
+
+Un curso rechazado se corrige y se reenvía con
+[`POST /courses/{course}/submission`](#post-coursescoursesubmission), que
+limpia el motivo anterior. No hay límite de reenvíos.
+
+---
+
+### GET `/courses/pending`
+
+Cola de moderación: los cursos que esperan revisión.
+**Requiere token.** Solo administradores.
+
+Ordenados **del que lleva más tiempo esperando al más reciente**, según la
+fecha en que se enviaron a revisión, no en que se crearon.
+
+**Autenticación**
+
+```
+Authorization: Bearer <token>
+```
+
+**Respuesta 200 OK**
+
+```json
+{
+  "courses": [
+    {
+      "id": 11,
+      "title": "Git para trabajo en equipo",
+      "description": "Ramas, merge requests y resolución de conflictos sin miedo.",
+      "level": "beginner",
+      "cover_url": null,
+      "category": { "id": 1, "name": "Desarrollo web" },
+      "instructor": { "id": 4, "name": "Diego Morales" }
+    }
+  ],
+  "pagination": {
+    "current_page": 1,
+    "last_page": 1,
+    "per_page": 12,
+    "total": 1
+  }
+}
+```
+
+Cada curso trae su `instructor`, porque el administrador necesita saber de
+quién es lo que está moderando. La forma es la misma que en
+[`GET /courses`](#get-courses).
+
+Si no hay nada que moderar, `courses` viene vacío y `total` en `0`.
+
+**Casos de error**
+
+| Situación | Código |
+|---|---|
+| Sin token o token revocado | 401 |
+| No eres administrador | 403 |
+
+**Ejemplo con curl**
+
+```bash
+curl http://localhost:8000/api/v1/courses/pending \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <token>"
+```
+
+---
+
+### POST `/courses/{course}/approval`
+
+Aprueba un curso en revisión y lo publica.
+**Requiere token.** Solo administradores.
+
+No lleva cuerpo. Solo funciona sobre cursos en `pending`.
+
+**Respuesta 200 OK**
+
+```json
+{
+  "course": {
+    "id": 11,
+    "title": "Git para trabajo en equipo",
+    "description": "Ramas, merge requests y resolución de conflictos sin miedo.",
+    "level": "beginner",
+    "status": "published",
+    "rejection_reason": null,
+    "cover_url": null,
+    "category": { "id": 1, "name": "Desarrollo web" },
+    "created_at": "2026-11-15T03:27:30.000000Z"
+  }
+}
+```
+
+Desde ese momento el curso aparece en [`GET /courses`](#get-courses) y
+cualquiera puede verlo sin token.
+
+**Casos de error**
+
+| Situación | Código |
+|---|---|
+| Sin token o token revocado | 401 |
+| No eres administrador | 403 |
+| El curso no está en `pending` | 403 |
+| El curso no existe | 404 |
+
+**Ejemplo con curl**
+
+```bash
+curl -X POST http://localhost:8000/api/v1/courses/11/approval \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <token>"
+```
+
+---
+
+### POST `/courses/{course}/rejection`
+
+Rechaza un curso en revisión y lo devuelve al instructor con un motivo.
+**Requiere token.** Solo administradores.
+
+**Cuerpo de la petición**
+
+| Campo | Tipo | Reglas |
+|---|---|---|
+| `rejection_reason` | string | Requerido. Entre 20 y 500 caracteres. |
+
+**El mínimo de 20 caracteres es a propósito.** Un motivo como "no" obligaría
+al instructor a adivinar qué corregir; el texto tiene que explicar algo.
+
+**Respuesta 200 OK**
+
+```json
+{
+  "course": {
+    "id": 13,
+    "title": "Seguridad en aplicaciones web",
+    "level": "advanced",
+    "status": "rejected",
+    "rejection_reason": "Falta detallar el contenido de los modulos dos y tres.",
+    "cover_url": null,
+    "category": { "id": 6, "name": "Redes y seguridad" },
+    "created_at": "2026-11-15T03:27:30.000000Z"
+  }
+}
+```
+
+El curso vuelve a ser editable y el instructor ve el motivo en
+[`GET /courses/me`](#get-coursesme) y en el detalle.
+
+**Respuesta 422 Unprocessable Content**
+
+```json
+{
+  "message": "The rejection reason field must be at least 20 characters.",
+  "errors": {
+    "rejection_reason": ["The rejection reason field must be at least 20 characters."]
+  }
+}
+```
+
+**Casos de error**
+
+| Situación | Código |
+|---|---|
+| Sin token o token revocado | 401 |
+| No eres administrador | 403 |
+| El curso no está en `pending` | 403 |
+| Motivo ausente o de menos de 20 caracteres | 422 |
+| Motivo de más de 500 caracteres | 422 |
+| El curso no existe | 404 |
+
+**Nota sobre el orden:** la autorización se comprueba **antes** que las
+reglas. Si el curso no está en `pending`, recibes `403` aunque el motivo
+también fuera inválido.
+
+**Ejemplo con curl**
+
+```bash
+curl -X POST http://localhost:8000/api/v1/courses/13/rejection \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{"rejection_reason":"Falta detallar el contenido de los modulos dos y tres."}'
 ```
 
 ---
