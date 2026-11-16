@@ -23,6 +23,7 @@ class AuthService
             ]);
 
             $user->role = UserRole::Student;
+            $user->status = UserStatus::Active;
             $user->save();
 
             return [
