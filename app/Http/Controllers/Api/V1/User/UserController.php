@@ -45,4 +45,27 @@ class UserController extends Controller
             'user' => new UserResource($this->userService->activate($user)),
         ]);
     }
+
+        /**
+     * Listar usuarios
+     *
+     * Para que el administrador vea a quien puede desactivar. Incluye a todos
+     * los roles y a si mismo.
+     */
+    public function index(): JsonResponse
+    {
+        Gate::authorize('viewAny', User::class);
+
+        $users = $this->userService->paginate();
+
+        return response()->json([
+            'users' => UserResource::collection($users->items()),
+            'pagination' => [
+                'current_page' => $users->currentPage(),
+                'last_page' => $users->lastPage(),
+                'per_page' => $users->perPage(),
+                'total' => $users->total(),
+            ],
+        ]);
+    }
 }

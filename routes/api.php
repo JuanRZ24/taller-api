@@ -39,6 +39,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Cuentas
     Route::post('/users/{user}/deactivation', [UserController::class, 'deactivate']);
     Route::post('/users/{user}/activation', [UserController::class, 'activate']);
+    Route::get('/users', [UserController::class, 'index']);
 
     // Sesion
     Route::get('/auth/me', [AuthController::class, 'me']);
