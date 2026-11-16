@@ -68,8 +68,36 @@ class CourseService
     {
         $course->status = CourseStatus::Pending;
         $course->rejection_reason = null;
+        $course->submitted_at = now();
         $course->save();
 
         return $course;
+    }
+
+        public function approve(Course $course): Course
+    {
+        $course->status = CourseStatus::Published;
+        $course->rejection_reason = null;
+        $course->save();
+
+        return $course;
+    }
+
+    public function reject(Course $course, string $reason): Course
+    {
+        $course->status = CourseStatus::Rejected;
+        $course->rejection_reason = $reason;
+        $course->save();
+
+        return $course;
+    }
+
+        public function paginatePending(int $perPage = 12): LengthAwarePaginator
+    {
+        return Course::query()
+            ->where('status', CourseStatus::Pending)
+            ->with(['category', 'user'])
+            ->orderBy('submitted_at')
+            ->paginate($perPage);
     }
 }

@@ -20,6 +20,7 @@ class Course extends Model
         return [
             'level' => CourseLevel::class,
             'status' => CourseStatus::class,
+            'submitted_at' => 'datetime',
         ];
     }
 
