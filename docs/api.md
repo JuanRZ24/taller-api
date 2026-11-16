@@ -23,6 +23,25 @@ volverse `instructor`, el propio usuario se da de alta en
 [`POST /instructors`](#post-instructors) completando su perfil público. El rol
 `admin` solo se crea desde el seeder inicial.
 
+## Estado de la cuenta
+
+Aparte del rol, toda cuenta tiene un `status`:
+
+| Valor | Significado |
+|---|---|
+| `active` | Puede iniciar sesión y usar la API. Es el estado inicial. |
+| `inactive` | Bloqueada por un administrador. No puede iniciar sesión. |
+
+**Una cuenta inactiva no puede entrar.** [`POST /auth/login`](#post-authlogin)
+responde `403` con `Cuenta no activa.` aunque las credenciales sean correctas.
+
+**Desactivar corta la sesión de inmediato.** Al bloquear una cuenta se revocan
+todos sus tokens, así que quien estuviera usando la API en ese momento recibe
+`401` en su siguiente petición. No hay que esperar a que cierre sesión.
+
+Solo un administrador cambia el estado, con los endpoints de
+[Cuentas](#cuentas).
+
 ## Endpoints
 
 | Método | Ruta | Acceso | Descripción |
@@ -31,6 +50,9 @@ volverse `instructor`, el propio usuario se da de alta en
 | `POST` | [`/auth/login`](#post-authlogin) | Público | Valida credenciales y devuelve un token |
 | `POST` | [`/auth/logout`](#post-authlogout) | Token | Revoca el token utilizado |
 | `GET` | [`/auth/me`](#get-authme) | Token | Devuelve el usuario autenticado |
+| `GET` | [`/users`](#get-users) | Token · Admin | Lista todas las cuentas |
+| `POST` | [`/users/{user}/deactivation`](#post-usersuserdeactivation) | Token · Admin | Desactiva una cuenta y revoca sus tokens |
+| `POST` | [`/users/{user}/activation`](#post-usersuseractivation) | Token · Admin | Reactiva una cuenta |
 | `POST` | [`/instructors`](#post-instructors) | Token · Estudiante | Convierte al usuario autenticado en instructor |
 | `GET` | [`/instructors/me`](#get-instructorsme) | Token | Devuelve el perfil del instructor autenticado |
 | `PATCH` | [`/instructors/me`](#patch-instructorsme) | Token · Instructor | Edita el perfil del instructor autenticado |
@@ -698,6 +720,170 @@ usuario están ocupados.
 ```bash
 curl http://localhost:8000/api/v1/instructors/4 \
   -H "Accept: application/json"
+```
+
+---
+
+## Cuentas
+
+Gestión de cuentas por parte de un administrador: ver quién existe y bloquear
+o devolver el acceso. **Los tres endpoints son solo para el rol `admin`**; un
+instructor o un estudiante recibe `403`.
+
+Desactivar no borra nada: la cuenta y todo lo que creó siguen ahí, solo que
+quien la usa ya no puede entrar. Ver
+[Estado de la cuenta](#estado-de-la-cuenta).
+
+---
+
+### GET `/users`
+
+Lista todas las cuentas, ordenadas por nombre.
+**Requiere token.** Solo administradores.
+
+Incluye todos los roles y también al propio administrador que consulta. Es la
+pantalla desde la que se elige a quién bloquear.
+
+**Autenticación**
+
+```
+Authorization: Bearer <token>
+```
+
+**Respuesta 200 OK**
+
+```json
+{
+  "users": [
+    {
+      "id": 2,
+      "name": "Administrador",
+      "email": "admin@demo.test",
+      "role": "admin",
+      "status": "active"
+    },
+    {
+      "id": 3,
+      "name": "Ana Herrera",
+      "email": "ana@demo.test",
+      "role": "instructor",
+      "status": "active"
+    }
+  ],
+  "pagination": {
+    "current_page": 1,
+    "last_page": 1,
+    "per_page": 20,
+    "total": 10
+  }
+}
+```
+
+**Casos de error**
+
+| Situación | Código |
+|---|---|
+| Sin token o token revocado | 401 |
+| No eres administrador | 403 |
+
+**Ejemplo con curl**
+
+```bash
+curl http://localhost:8000/api/v1/users \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <token>"
+```
+
+---
+
+### POST `/users/{user}/deactivation`
+
+Bloquea el acceso de una cuenta.
+**Requiere token.** Solo administradores.
+
+No lleva cuerpo: el usuario viene en la ruta.
+
+**Revoca todos los tokens del usuario.** Si estaba usando la API en ese
+momento, su siguiente petición recibe `401`. No queda sesión viva.
+
+**Un administrador no se puede desactivar a sí mismo.** Si fuera el único,
+nadie quedaría para reactivarlo.
+
+**Respuesta 200 OK**
+
+```json
+{
+  "user": {
+    "id": 6,
+    "name": "Sofia Beltran",
+    "email": "sofia@demo.test",
+    "role": "student",
+    "status": "inactive"
+  }
+}
+```
+
+A partir de aquí, [`POST /auth/login`](#post-authlogin) le responde `403` con
+`Cuenta no activa.`
+
+**Casos de error**
+
+| Situación | Código |
+|---|---|
+| Sin token o token revocado | 401 |
+| No eres administrador | 403 |
+| Intentas desactivarte a ti mismo | 403 |
+| El usuario no existe | 404 |
+| El `{user}` no es un número | 404 |
+
+**Ejemplo con curl**
+
+```bash
+curl -X POST http://localhost:8000/api/v1/users/6/deactivation \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <token>"
+```
+
+---
+
+### POST `/users/{user}/activation`
+
+Devuelve el acceso a una cuenta bloqueada.
+**Requiere token.** Solo administradores.
+
+No lleva cuerpo. **El usuario tendrá que volver a iniciar sesión**, porque sus
+tokens se revocaron al desactivarlo; reactivar no los devuelve.
+
+Llamarlo sobre una cuenta que ya está activa no hace nada y responde igual.
+
+**Respuesta 200 OK**
+
+```json
+{
+  "user": {
+    "id": 6,
+    "name": "Sofia Beltran",
+    "email": "sofia@demo.test",
+    "role": "student",
+    "status": "active"
+  }
+}
+```
+
+**Casos de error**
+
+| Situación | Código |
+|---|---|
+| Sin token o token revocado | 401 |
+| No eres administrador | 403 |
+| El usuario no existe | 404 |
+
+**Ejemplo con curl**
+
+```bash
+curl -X POST http://localhost:8000/api/v1/users/6/activation \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <token>"
 ```
 
 ---
