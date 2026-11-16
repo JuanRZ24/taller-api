@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\Content\ContentController;
 use App\Http\Controllers\Api\V1\Course\CourseController;
 use App\Http\Controllers\Api\V1\Instructor\InstructorController;
 use App\Http\Controllers\Api\V1\Module\ModuleController;
+use App\Http\Controllers\Api\V1\User\UserController;
 use App\Http\Controllers\Api\V1\Enrollment\EnrollmentController;
 
 
@@ -14,6 +15,7 @@ Route::pattern('content', '[0-9]+');
 Route::pattern('course', '[0-9]+');
 Route::pattern('instructor', '[0-9]+');
 Route::pattern('module', '[0-9]+');
+Route::pattern('user', '[0-9]+');
 
 /*
  * RUTAS PUBLICAS
@@ -32,6 +34,11 @@ Route::get('/instructors/{instructor}', [InstructorController::class, 'show']);
  * RUTAS QUE EXIGEN TOKEN
  */
 Route::middleware('auth:sanctum')->group(function () {
+
+
+    // Cuentas
+    Route::post('/users/{user}/deactivation', [UserController::class, 'deactivate']);
+    Route::post('/users/{user}/activation', [UserController::class, 'activate']);
 
     // Sesion
     Route::get('/auth/me', [AuthController::class, 'me']);
